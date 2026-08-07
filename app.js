@@ -37,7 +37,7 @@ let isTutorial = false;
 let tutorialStepIndex = 0;
 let currentRangeMin = 0; // 출제 범위 하한(포함), 0 = 제한 없음
 let currentRangeMax = Infinity; // 출제 범위 상한(미포함), Infinity = 제한 없음
-let confirmed = { gender: false, crew: false, age: false, fanCount: false }; // 정답 사진 옆 4칸 확정 여부
+let confirmed = { gender: false, crew: false, startYear: false, fanCount: false }; // 정답 사진 옆 4칸 확정 여부
 let volume = 50; // 사운드/배경음악 기본 볼륨 (bindEvents() -> initSound() 에서 곧바로 참조하므로 맨 위에서 선언해야 한다)
 let audioCtx = null;
 
@@ -99,7 +99,7 @@ const loadingEl = $("#loading");
 const gameEl = $("#game");
 const confirmedGenderEl = $("#confirmedGender");
 const confirmedCrewEl = $("#confirmedCrew");
-const confirmedAgeEl = $("#confirmedAge");
+const confirmedStartYearEl = $("#confirmedStartYear");
 const confirmedFanEl = $("#confirmedFan");
 const guessBoxEl = $("#guessBox");
 const inputEl = $("#guessInput");
@@ -253,7 +253,7 @@ function finalizeRangeInputs() {
 function resetGameState() {
   target = null;
   guessedNames = [];
-  confirmed = { gender: false, crew: false, age: false, fanCount: false };
+  confirmed = { gender: false, crew: false, startYear: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
   resetReveal();
@@ -318,7 +318,7 @@ function pickRandomTarget(excludeName) {
 function startNewGame(newTarget) {
   target = newTarget || pickRandomTarget();
   guessedNames = [];
-  confirmed = { gender: false, crew: false, age: false, fanCount: false };
+  confirmed = { gender: false, crew: false, startYear: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
   resetReveal();
@@ -329,21 +329,21 @@ function startNewGame(newTarget) {
 }
 
 // ---------------------------------------------------------
-// 정답 사진과 입력창 사이의 4칸 — 성별/크루/나이/애청자수 중 확정된 것만 채운다
+// 정답 사진과 입력창 사이의 4칸 — 성별/크루/방송 시작 연도/애청자수 중 확정된 것만 채운다
 // ---------------------------------------------------------
 function updateConfirmedFromCmp(cmp) {
   if (cmp.genderCmp.match) confirmed.gender = true;
   if (cmp.crewCmp.match) confirmed.crew = true;
-  if (cmp.ageCmp.match) confirmed.age = true;
+  if (cmp.startYearCmp.match) confirmed.startYear = true;
   if (cmp.fanCmp.match) confirmed.fanCount = true;
 }
 
-// 정답이 처음부터 성별/나이 비공개거나 크루 무소속이면, 어차피 맞는 걸 찾을 수 없으니
+// 정답이 처음부터 성별/방송 시작 연도가 비공개거나 크루 무소속이면, 어차피 맞는 걸 찾을 수 없으니
 // 첫 시도 직후 자동으로 그 사실을 확정 칸에 채워준다 (given hint 칩과 같은 판단 기준).
 function autoRevealUnknownGivens() {
   if (getCrewNames(target).length === 0) confirmed.crew = true;
   if (!target.gender) confirmed.gender = true;
-  if (target.age == null) confirmed.age = true;
+  if (target.startYear == null) confirmed.startYear = true;
 }
 
 function renderConfirmedHints() {
@@ -357,8 +357,8 @@ function renderConfirmedHints() {
     return { crew: true, name: names[0], image: target.crewImage };
   });
 
-  renderConfirmedSlot(confirmedAgeEl, confirmed.age, () => ({
-    text: target.age != null ? `${target.age}세` : "비공개",
+  renderConfirmedSlot(confirmedStartYearEl, confirmed.startYear, () => ({
+    text: target.startYear != null ? `${target.startYear}년` : "비공개",
   }));
 
   renderConfirmedSlot(confirmedFanEl, confirmed.fanCount, () => ({
@@ -753,7 +753,7 @@ function computeHintComparisons(streamer) {
   return {
     genderCmp: compareGender(streamer.gender, target.gender),
     crewCmp: compareCrew(streamer, target),
-    ageCmp: compareNumber(streamer.age, target.age),
+    startYearCmp: compareNumber(streamer.startYear, target.startYear),
     fanCmp: compareNumber(streamer.fanCount, target.fanCount),
   };
 }
@@ -767,7 +767,7 @@ function renderGuessRow(streamer) {
   row.appendChild(nameCell(streamer.name));
   row.appendChild(genderBadge(streamer.gender, cmp.genderCmp));
   row.appendChild(crewBadge(cmp.crewCmp.crewName, resolveCrewImage(streamer, cmp.crewCmp.crewName), cmp.crewCmp));
-  row.appendChild(numberBadge(streamer.age, cmp.ageCmp, (v) => `${v}세`));
+  row.appendChild(numberBadge(streamer.startYear, cmp.startYearCmp, (v) => `${v}년`));
   row.appendChild(numberBadge(streamer.fanCount, cmp.fanCmp, formatFanCount));
 
   boardBodyEl.prepend(row);
@@ -934,7 +934,7 @@ const TUTORIAL_STEPS = [
     highlight: () => guessBoxEl,
   },
   {
-    text: "방금 나온 원(배지)들이 힌트예요! 파란 배경은 정답과 일치, 검정 배경은 불일치예요. 나이·애청자수 옆의 화살표(▲/▼)는 정답이 더 높은지 낮은지 알려줘요.",
+    text: "방금 나온 원(배지)들이 힌트예요! 파란 배경은 정답과 일치, 검정 배경은 불일치예요. 방송 시작·애청자수 옆의 화살표(▲/▼)는 정답이 더 높은지 낮은지 알려줘요.",
     highlight: () => boardBodyEl,
   },
   {
@@ -945,8 +945,8 @@ const TUTORIAL_STEPS = [
 
 function pickTutorialTarget() {
   return (
-    streamers.find((s) => s.age != null && s.fanCount != null && s.crewName && hasValidImagePath(s.crewImage)) ||
-    streamers.find((s) => s.age != null && s.fanCount != null) ||
+    streamers.find((s) => s.startYear != null && s.fanCount != null && s.crewName && hasValidImagePath(s.crewImage)) ||
+    streamers.find((s) => s.startYear != null && s.fanCount != null) ||
     streamers[0]
   );
 }
