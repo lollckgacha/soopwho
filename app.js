@@ -9,13 +9,35 @@ const DATA_PATH = "soop_who.json";
 const STATS_KEY = "soopWhoAreYa.stats.v1";
 const VOLUME_KEY = "soopWhoAreYa.volume";
 
+// 출제 범위 슬라이더의 눈금들. 각 손잡이는 이 배열의 인덱스(0~13)를 값으로 갖는다.
+// 간단한 버튼("2천▲" 등)은 결국 이 인덱스 두 개(min/max)를 지정하는 것과 같다.
+const RANGE_STEPS = [
+  { value: 0, label: "0" },
+  { value: 500, label: "500" },
+  { value: 1000, label: "1천" },
+  { value: 2000, label: "2천" },
+  { value: 3000, label: "3천" },
+  { value: 5000, label: "5천" },
+  { value: 7000, label: "7천" },
+  { value: 10000, label: "1만" },
+  { value: 15000, label: "1.5만" },
+  { value: 20000, label: "2만" },
+  { value: 30000, label: "3만" },
+  { value: 50000, label: "5만" },
+  { value: 100000, label: "10만" },
+  { value: Infinity, label: "무제한" },
+];
+const RANGE_LAST_INDEX = RANGE_STEPS.length - 1;
+
 let streamers = [];
 let target = null;
 let guessedNames = [];
 let crewImageByName = {}; // 크루명 -> 이미지 경로 (대표 크루가 아닌 다른 소속 크루를 힌트로 보여줄 때 필요)
 let isTutorial = false;
 let tutorialStepIndex = 0;
-let currentMode = "all"; // "all" | "under2000" | "over2000" | "over5000" | "over10000"
+let currentRangeMin = 0; // 출제 범위 하한(포함), 0 = 제한 없음
+let currentRangeMax = Infinity; // 출제 범위 상한(미포함), Infinity = 제한 없음
+let confirmed = { gender: false, crew: false, age: false, fanCount: false }; // 정답 사진 옆 4칸 확정 여부
 let volume = 50; // 사운드/배경음악 기본 볼륨 (bindEvents() -> initSound() 에서 곧바로 참조하므로 맨 위에서 선언해야 한다)
 let audioCtx = null;
 
@@ -37,10 +59,16 @@ const homeVolumeSliderEl = $("#homeVolumeSlider");
 const homeVolumeIconEl = $("#homeVolumeIcon");
 const settingsResetStatsBtn = $("#settingsResetStatsBtn");
 
-// 출제 범위 선택 메뉴
+// 출제 범위 선택 메뉴 (구간 슬라이더)
 const modeMenuEl = $("#modeMenu");
-const modeBtns = Array.from(document.querySelectorAll(".mode-btn"));
 const modeBackBtn = $("#modeBackBtn");
+const rangePresetBtns = Array.from(document.querySelectorAll(".range-preset-btn"));
+const rangeMinSliderEl = $("#rangeMinSlider");
+const rangeMaxSliderEl = $("#rangeMaxSlider");
+const rangeFillEl = $("#rangeFill");
+const rangeMinInputEl = $("#rangeMinInput");
+const rangeMaxInputEl = $("#rangeMaxInput");
+const rangeStartBtn = $("#rangeStartBtn");
 
 // 상단바 (게임/통계 화면 공용)
 const homeBtn = $("#homeBtn");
@@ -69,9 +97,10 @@ const resetStatsBtn = $("#resetStatsBtn");
 // 게임 화면
 const loadingEl = $("#loading");
 const gameEl = $("#game");
-const givenHintsEl = $("#givenHints");
-const givenCrewHintEl = $("#givenCrewHint");
-const givenAgeHintEl = $("#givenAgeHint");
+const confirmedGenderEl = $("#confirmedGender");
+const confirmedCrewEl = $("#confirmedCrew");
+const confirmedAgeEl = $("#confirmedAge");
+const confirmedFanEl = $("#confirmedFan");
 const guessBoxEl = $("#guessBox");
 const inputEl = $("#guessInput");
 const submitBtn = $("#submitBtn");
@@ -140,16 +169,96 @@ function showHomeMenu() {
 function showModeMenu() {
   homeMenuEl.classList.add("hidden");
   modeMenuEl.classList.remove("hidden");
+  setRangeFromIndexes();
+}
+
+// ---------------------------------------------------------
+// 출제 범위 슬라이더 (양쪽 끝 손잡이로 구간을 정하거나, 위쪽 버튼으로 간편하게 정하거나,
+// 입력칸에 직접 숫자를 입력해서 정할 수 있다)
+//
+// rangeMinIndex/rangeMaxIndex : 슬라이더 손잡이 위치 (RANGE_STEPS 인덱스, 드래그용)
+// rangeMinValue/rangeMaxValue : 실제로 필터에 쓰이는 값 (입력칸에 임의의 숫자를 직접 넣을 수 있어서
+//                                손잡이가 딱 맞는 눈금에 있지 않아도 될 수 있다)
+// ---------------------------------------------------------
+let rangeMinIndex = 0;
+let rangeMaxIndex = RANGE_LAST_INDEX;
+let rangeMinValue = 0;
+let rangeMaxValue = Infinity;
+
+// 임의의 숫자(직접 입력값)와 가장 가까운 슬라이더 눈금의 인덱스를 찾는다 (손잡이 위치 갱신용)
+function findNearestStepIndex(value) {
+  if (value === Infinity) return RANGE_LAST_INDEX;
+  let bestIdx = 0;
+  let bestDiff = Infinity;
+  for (let i = 0; i < RANGE_STEPS.length; i++) {
+    const stepVal = RANGE_STEPS[i].value;
+    if (stepVal === Infinity) continue;
+    const diff = Math.abs(stepVal - value);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
+}
+
+// 슬라이더 손잡이/채움/프리셋 강조만 갱신 (입력칸 텍스트는 건드리지 않음 — 타이핑 중에 덮어쓰지 않기 위해)
+function updateSliderVisual() {
+  if (rangeMinIndex > rangeMaxIndex) rangeMinIndex = rangeMaxIndex;
+
+  rangeMinSliderEl.value = String(rangeMinIndex);
+  rangeMaxSliderEl.value = String(rangeMaxIndex);
+
+  const pct = (i) => (i / RANGE_LAST_INDEX) * 100;
+  rangeFillEl.style.left = pct(rangeMinIndex) + "%";
+  rangeFillEl.style.width = Math.max(0, pct(rangeMaxIndex) - pct(rangeMinIndex)) + "%";
+
+  rangePresetBtns.forEach((btn) => {
+    const isActive = Number(btn.dataset.min) === rangeMinIndex && Number(btn.dataset.max) === rangeMaxIndex;
+    btn.classList.toggle("active", isActive);
+  });
+}
+
+// 입력칸 두 개의 표시 텍스트를 현재 값으로 맞춘다
+function updateRangeInputsFromValues() {
+  rangeMinInputEl.value = String(rangeMinValue);
+  rangeMaxInputEl.value = rangeMaxValue === Infinity ? "" : String(rangeMaxValue);
+}
+
+// 슬라이더(손잡이 드래그)나 프리셋 버튼으로 값이 바뀌었을 때: 인덱스 -> 실제 값 -> 화면 전부 갱신
+// ("가로선 손잡이를 드래그하면 입력칸 안의 숫자가 변하게" 요구사항)
+function setRangeFromIndexes() {
+  rangeMinValue = RANGE_STEPS[rangeMinIndex].value;
+  rangeMaxValue = RANGE_STEPS[rangeMaxIndex].value;
+  updateSliderVisual();
+  updateRangeInputsFromValues();
+}
+
+// 입력칸에 직접 숫자를 타이핑했을 때: 값은 그대로 두고, 손잡이 위치만 가장 가까운 눈금으로 옮긴다
+// (입력 중인 글자를 되돌려쓰지 않기 위해 입력칸 자체는 다시 렌더링하지 않음)
+function setRangeFromInputs() {
+  rangeMinIndex = findNearestStepIndex(rangeMinValue);
+  rangeMaxIndex = findNearestStepIndex(rangeMaxValue);
+  updateSliderVisual();
+}
+
+// 입력칸에서 포커스가 빠져나갈 때: min > max 처럼 어긋난 값을 정리한다
+function finalizeRangeInputs() {
+  if (rangeMinValue > rangeMaxValue) rangeMinValue = rangeMaxValue;
+  updateRangeInputsFromValues();
+  setRangeFromInputs();
 }
 
 // 진행 중인 라운드를 완전히 비운다 (다음에 "게임 시작"을 누르면 새 문제로 시작)
 function resetGameState() {
   target = null;
   guessedNames = [];
+  confirmed = { gender: false, crew: false, age: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
   resetReveal();
   showRoundInProgress();
+  renderConfirmedHints();
 }
 
 async function runInGameScreen(startFn) {
@@ -182,22 +291,18 @@ function enterRealGame() {
 // 게임 상태
 // ---------------------------------------------------------
 
-// 현재 선택된 출제 범위(currentMode)에 맞는 스트리머 목록만 걸러낸다.
-// 예: "over2000" 이면 2천~5천 사이가 아니라 2천 이상 전부가 대상이다 (하한선만 있는 필터).
-// 애청자 수가 비공개(null)인 스트리머는 범위를 확인할 수 없으므로 "전체 모드"가 아닐 때는 제외한다.
+// 현재 선택된 출제 범위(currentRangeMin~currentRangeMax)에 맞는 스트리머만 걸러낸다.
+// 하한은 포함, 상한은 미포함 — 예: [2000, Infinity) 면 "2천 이상 전부", [0, 2000) 면 "2천 미만 전부"
+// (2천~5천처럼 좁은 구간으로 잘못 해석되지 않도록 항상 이 규칙을 지킨다).
+// 애청자 수가 비공개(null)인 스트리머는 범위를 확인할 수 없으므로, 전체 범위가 아닐 때는 제외한다.
 function getModeFilteredPool() {
-  switch (currentMode) {
-    case "under2000":
-      return streamers.filter((s) => s.fanCount != null && s.fanCount < 2000);
-    case "over2000":
-      return streamers.filter((s) => s.fanCount != null && s.fanCount >= 2000);
-    case "over5000":
-      return streamers.filter((s) => s.fanCount != null && s.fanCount >= 5000);
-    case "over10000":
-      return streamers.filter((s) => s.fanCount != null && s.fanCount >= 10000);
-    default:
-      return streamers;
-  }
+  if (currentRangeMin === 0 && currentRangeMax === Infinity) return streamers;
+  return streamers.filter((s) => {
+    if (s.fanCount == null) return false;
+    if (s.fanCount < currentRangeMin) return false;
+    if (currentRangeMax !== Infinity && s.fanCount >= currentRangeMax) return false;
+    return true;
+  });
 }
 
 function pickRandomTarget(excludeName) {
@@ -213,24 +318,83 @@ function pickRandomTarget(excludeName) {
 function startNewGame(newTarget) {
   target = newTarget || pickRandomTarget();
   guessedNames = [];
+  confirmed = { gender: false, crew: false, age: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
   resetReveal();
   showRoundInProgress();
-  showGivenHints();
+  renderConfirmedHints();
   inputEl.value = "";
   inputEl.focus();
 }
 
-// 정답 스트리머가 처음부터 크루 무소속/나이 비공개면, 시도 횟수 차감 없이 미리 알려준다
-// (안 그러면 사람들이 애초에 확인할 수 없는 정보를 맞히려고 계속 시도를 낭비하게 된다)
-function showGivenHints() {
-  const crewless = target && getCrewNames(target).length === 0;
-  const ageUnknown = target && target.age == null;
+// ---------------------------------------------------------
+// 정답 사진과 입력창 사이의 4칸 — 성별/크루/나이/애청자수 중 확정된 것만 채운다
+// ---------------------------------------------------------
+function updateConfirmedFromCmp(cmp) {
+  if (cmp.genderCmp.match) confirmed.gender = true;
+  if (cmp.crewCmp.match) confirmed.crew = true;
+  if (cmp.ageCmp.match) confirmed.age = true;
+  if (cmp.fanCmp.match) confirmed.fanCount = true;
+}
 
-  givenCrewHintEl.classList.toggle("hidden", !crewless);
-  givenAgeHintEl.classList.toggle("hidden", !ageUnknown);
-  givenHintsEl.classList.toggle("hidden", !(crewless || ageUnknown));
+// 정답이 처음부터 성별/나이 비공개거나 크루 무소속이면, 어차피 맞는 걸 찾을 수 없으니
+// 첫 시도 직후 자동으로 그 사실을 확정 칸에 채워준다 (given hint 칩과 같은 판단 기준).
+function autoRevealUnknownGivens() {
+  if (getCrewNames(target).length === 0) confirmed.crew = true;
+  if (!target.gender) confirmed.gender = true;
+  if (target.age == null) confirmed.age = true;
+}
+
+function renderConfirmedHints() {
+  renderConfirmedSlot(confirmedGenderEl, confirmed.gender, () => ({
+    text: genderSymbol(target.gender) || "비공개",
+  }));
+
+  renderConfirmedSlot(confirmedCrewEl, confirmed.crew, () => {
+    const names = getCrewNames(target);
+    if (names.length === 0) return { text: "무소속" };
+    return { crew: true, name: names[0], image: target.crewImage };
+  });
+
+  renderConfirmedSlot(confirmedAgeEl, confirmed.age, () => ({
+    text: target.age != null ? `${target.age}세` : "비공개",
+  }));
+
+  renderConfirmedSlot(confirmedFanEl, confirmed.fanCount, () => ({
+    text: formatFanCount(target.fanCount),
+  }));
+}
+
+function renderConfirmedSlot(el, isConfirmed, contentFn) {
+  el.classList.toggle("confirmed", isConfirmed);
+  el.removeAttribute("data-tooltip");
+
+  if (!isConfirmed) {
+    el.innerHTML = '<span class="confirmed-mark">?</span>';
+    return;
+  }
+
+  const data = contentFn();
+
+  if (data.crew) {
+    el.setAttribute("data-tooltip", data.name);
+    if (hasValidImagePath(data.image)) {
+      el.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = data.image;
+      img.alt = data.name;
+      img.onerror = () => {
+        el.innerHTML = `<span class="confirmed-text">${escapeHtml(data.name.slice(0, 2))}</span>`;
+      };
+      el.appendChild(img);
+    } else {
+      el.innerHTML = `<span class="confirmed-text">${escapeHtml(data.name.slice(0, 2))}</span>`;
+    }
+    return;
+  }
+
+  el.innerHTML = `<span class="confirmed-text">${escapeHtml(data.text)}</span>`;
 }
 
 // 라운드 진행 중 UI 상태 (입력창 보이기, 결과 패널 숨기기)
@@ -252,12 +416,49 @@ function bindEvents() {
   // 메인 화면
   startGameBtn.addEventListener("click", showModeMenu);
   modeBackBtn.addEventListener("click", showHomeMenu);
-  modeBtns.forEach((btn) => {
+
+  // 출제 범위 슬라이더
+  rangeMinSliderEl.addEventListener("input", () => {
+    rangeMinIndex = Math.min(Number(rangeMinSliderEl.value), rangeMaxIndex);
+    setRangeFromIndexes();
+  });
+  rangeMaxSliderEl.addEventListener("input", () => {
+    rangeMaxIndex = Math.max(Number(rangeMaxSliderEl.value), rangeMinIndex);
+    setRangeFromIndexes();
+  });
+  rangePresetBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
-      currentMode = btn.dataset.mode || "all";
-      enterRealGame();
+      rangeMinIndex = Number(btn.dataset.min);
+      rangeMaxIndex = Number(btn.dataset.max);
+      setRangeFromIndexes();
     });
   });
+
+  // 입력칸에 직접 숫자 입력 (타이핑하는 동안은 값만 갱신하고 손잡이만 따라가며,
+  // 입력칸 자체는 다시 쓰지 않아서 타이핑을 방해하지 않는다)
+  rangeMinInputEl.addEventListener("input", () => {
+    const raw = rangeMinInputEl.value.trim();
+    const v = raw === "" ? 0 : Number(raw);
+    if (isNaN(v) || v < 0) return;
+    rangeMinValue = v;
+    setRangeFromInputs();
+  });
+  rangeMaxInputEl.addEventListener("input", () => {
+    const raw = rangeMaxInputEl.value.trim();
+    const v = raw === "" ? Infinity : Number(raw);
+    if (raw !== "" && (isNaN(v) || v < 0)) return;
+    rangeMaxValue = v;
+    setRangeFromInputs();
+  });
+  rangeMinInputEl.addEventListener("blur", finalizeRangeInputs);
+  rangeMaxInputEl.addEventListener("blur", finalizeRangeInputs);
+
+  rangeStartBtn.addEventListener("click", () => {
+    currentRangeMin = rangeMinValue;
+    currentRangeMax = rangeMaxValue;
+    enterRealGame();
+  });
+
   tutorialBtn.addEventListener("click", startTutorial);
   statsBtn.addEventListener("click", () => {
     renderStats();
@@ -335,8 +536,11 @@ function bindEvents() {
   giveupBtn.addEventListener("click", () => {
     if (!target) return;
     if (!guessedNames.includes(target.name)) {
-      renderGuessRow(target);
+      const cmp = renderGuessRow(target);
+      updateConfirmedFromCmp(cmp);
       guessedNames.push(target.name);
+      if (guessedNames.length === 1) autoRevealUnknownGivens();
+      renderConfirmedHints();
       updateGuessCount();
     }
     showWin(true);
@@ -431,7 +635,10 @@ function submitGuess(rawName) {
   }
 
   guessedNames.push(streamer.name);
-  renderGuessRow(streamer);
+  const cmp = renderGuessRow(streamer);
+  updateConfirmedFromCmp(cmp);
+  if (guessedNames.length === 1) autoRevealUnknownGivens();
+  renderConfirmedHints();
   updateGuessCount();
   inputEl.value = "";
   suggestionsEl.classList.add("hidden");
@@ -524,32 +731,47 @@ function compareNumber(guessVal, ansVal) {
   return { match: false, unknown: false, direction: guessVal < ansVal ? "up" : "down" };
 }
 
+// 소수 첫째자리까지 내림해서 표시한다 (반올림하면 실제보다 부풀려 보일 수 있어서 항상 내림).
+// 예: 18000 -> "1.8만", 7800 -> "7.8천". 딱 떨어지는 값(20000 등)은 ".0"을 안 붙이고 "2만"으로 표시.
 function formatFanCount(n) {
   if (n == null) return "비공개";
-  if (n >= 10000) return Math.floor(n / 10000) + "만";
-  if (n >= 1000) return Math.floor(n / 1000) + "천";
+
+  function oneDecimal(divided) {
+    const rounded = Math.floor(divided * 10) / 10;
+    return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(1);
+  }
+
+  if (n >= 10000) return oneDecimal(n / 10000) + "만";
+  if (n >= 1000) return oneDecimal(n / 1000) + "천";
   return String(n) + "명";
 }
 
 // ---------------------------------------------------------
 // 렌더링
 // ---------------------------------------------------------
+function computeHintComparisons(streamer) {
+  return {
+    genderCmp: compareGender(streamer.gender, target.gender),
+    crewCmp: compareCrew(streamer, target),
+    ageCmp: compareNumber(streamer.age, target.age),
+    fanCmp: compareNumber(streamer.fanCount, target.fanCount),
+  };
+}
+
 function renderGuessRow(streamer) {
   const row = document.createElement("div");
   row.className = "board-row guess-row";
 
-  const genderCmp = compareGender(streamer.gender, target.gender);
-  const crewCmp = compareCrew(streamer, target);
-  const ageCmp = compareNumber(streamer.age, target.age);
-  const fanCmp = compareNumber(streamer.fanCount, target.fanCount);
+  const cmp = computeHintComparisons(streamer);
 
   row.appendChild(nameCell(streamer.name));
-  row.appendChild(genderBadge(streamer.gender, genderCmp));
-  row.appendChild(crewBadge(crewCmp.crewName, resolveCrewImage(streamer, crewCmp.crewName), crewCmp));
-  row.appendChild(numberBadge(streamer.age, ageCmp, (v) => `${v}세`));
-  row.appendChild(numberBadge(streamer.fanCount, fanCmp, formatFanCount));
+  row.appendChild(genderBadge(streamer.gender, cmp.genderCmp));
+  row.appendChild(crewBadge(cmp.crewCmp.crewName, resolveCrewImage(streamer, cmp.crewCmp.crewName), cmp.crewCmp));
+  row.appendChild(numberBadge(streamer.age, cmp.ageCmp, (v) => `${v}세`));
+  row.appendChild(numberBadge(streamer.fanCount, cmp.fanCmp, formatFanCount));
 
   boardBodyEl.prepend(row);
+  return cmp;
 }
 
 function nameCell(name) {

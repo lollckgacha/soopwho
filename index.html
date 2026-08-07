@@ -33,18 +33,37 @@
         </div>
       </div>
 
-      <div class="home-menu hidden" id="modeMenu">
+      <div class="range-menu hidden" id="modeMenu">
         <p class="mode-menu-title">출제 범위를 선택하세요</p>
-        <button class="home-btn mode-btn" data-mode="all">전체 모드</button>
-        <button class="home-btn mode-btn" data-mode="under2000">애청자 2천 미만 모드</button>
-        <button class="home-btn mode-btn" data-mode="over2000">애청자 2천 이상 모드</button>
-        <button class="home-btn mode-btn" data-mode="over5000">애청자 5천 이상 모드</button>
-        <button class="home-btn mode-btn" data-mode="over10000">애청자 1만 이상 모드</button>
-        <button id="modeBackBtn" class="text-btn">← 돌아가기</button>
+
+        <div class="range-presets">
+          <button class="range-preset-btn" data-min="0" data-max="13">전체</button>
+          <button class="range-preset-btn" data-min="0" data-max="3">2천▼</button>
+          <button class="range-preset-btn" data-min="3" data-max="13">2천▲</button>
+          <button class="range-preset-btn" data-min="5" data-max="13">5천▲</button>
+          <button class="range-preset-btn" data-min="7" data-max="13">1만▲</button>
+        </div>
+
+        <div class="range-slider-wrap">
+          <div class="range-track"></div>
+          <div class="range-fill" id="rangeFill"></div>
+          <input type="range" id="rangeMinSlider" class="range-input" min="0" max="13" step="1" value="0" />
+          <input type="range" id="rangeMaxSlider" class="range-input" min="0" max="13" step="1" value="13" />
+        </div>
+
+        <div class="range-inputs">
+          <input type="number" id="rangeMinInput" class="range-number-input" min="0" placeholder="0" />
+          <span class="range-tilde">~</span>
+          <input type="number" id="rangeMaxInput" class="range-number-input" min="0" placeholder="무제한" />
+        </div>
+
+        <button id="rangeStartBtn" class="home-btn primary">🎮 이 범위로 시작</button>
+        <button id="modeBackBtn" class="ghost-btn range-back-btn">← 돌아가기</button>
       </div>
 
       <div class="footer-box">
         <p>각종 문제 오류, 문의, 스트리머 사진 및 아이디어 제공 환영</p>
+        <p class="footer-highlight">★스트리머 추가 문의 환영★</p>
         <p>제작자 이메일: <a href="mailto:konamp63@gmail.com">konamp63@gmail.com</a></p>
       </div>
     </section>
@@ -111,11 +130,13 @@
             <span class="reveal-mark">?</span>
           </div>
           <div id="revealName" class="reveal-name hidden"></div>
-        </div>
 
-        <div id="givenHints" class="given-hints hidden">
-          <span id="givenCrewHint" class="given-hint-chip hidden">🏷️ 소속크루: 무소속</span>
-          <span id="givenAgeHint" class="given-hint-chip hidden">🎂 나이: 비공개</span>
+          <div class="confirmed-hints" id="confirmedHints">
+            <div class="confirmed-slot" id="confirmedGender"><span class="confirmed-mark">?</span></div>
+            <div class="confirmed-slot" id="confirmedCrew"><span class="confirmed-mark">?</span></div>
+            <div class="confirmed-slot" id="confirmedAge"><span class="confirmed-mark">?</span></div>
+            <div class="confirmed-slot" id="confirmedFan"><span class="confirmed-mark">?</span></div>
+          </div>
         </div>
 
         <div class="guess-box" id="guessBox">
