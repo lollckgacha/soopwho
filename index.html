@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOOP WHO ARE YA? — 숲 스트리머 스무고개</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>SOOP <span class="accent">WHO ARE YA?</span></h1>
+      <p class="subtitle">힌트를 보고 숲(SOOP) 스트리머를 맞혀보세요!</p>
+    </header>
+
+    <div id="loading" class="status">스트리머 데이터를 불러오는 중...</div>
+
+    <main id="game" class="hidden">
+      <div class="reveal-card">
+        <div class="reveal-photo" id="revealPhoto">
+          <span class="reveal-mark">?</span>
+        </div>
+        <div id="revealName" class="reveal-name hidden"></div>
+      </div>
+
+      <div class="guess-box">
+        <div class="input-row">
+          <input id="guessInput" type="text" placeholder="스트리머 이름을 입력하세요" autocomplete="off" />
+          <button id="submitBtn">맞히기</button>
+        </div>
+        <ul id="suggestions" class="suggestions hidden"></ul>
+      </div>
+
+      <div class="toolbar">
+        <span id="guessCount">시도: 0회</span>
+        <button id="shuffleBtn" class="ghost-btn" title="다른 스트리머로 새 게임 시작">🔀 다른 문제</button>
+        <button id="giveupBtn" class="ghost-btn">🏳️ 정답 보기</button>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board">
+          <div class="board-row board-head">
+            <div class="cell cell-name">스트리머</div>
+            <div class="cell">성별</div>
+            <div class="cell">소속 크루</div>
+            <div class="cell">나이</div>
+            <div class="cell">애청자 수</div>
+          </div>
+          <div id="boardBody"></div>
+        </div>
+      </div>
+    </main>
+
+    <div id="winModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>🎉 정답입니다!</h2>
+        <p id="winText"></p>
+        <p id="winMeta" class="win-meta"></p>
+        <button id="playAgainBtn">🔀 다른 문제 도전하기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

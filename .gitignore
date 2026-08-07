@@ -1,0 +1,12 @@
+# Firebase 쓰기 시크릿이 포함된 파일 — 절대 깃허브에 올리지 않는다.
+# (Apps Script는 구글 스프레드시트의 확장 프로그램 편집기에 붙여넣는 것이라
+#  이 리포에 없어도 사이트 배포와는 무관하다)
+apps_script_who_are_ya.gs
+apps script.txt
+
+# 사이트 배포에는 필요 없는 원본 스프레드시트 스냅샷
+SOOP WHO.xlsx
+
+# OS 잡파일
+.DS_Store
+Thumbs.db

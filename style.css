@@ -1,0 +1,465 @@
+:root {
+  /* SOOP 브랜드 블루(#0388ff) + 블랙 + 화이트 기반 팔레트 */
+  --bg-0: #05070a;
+  --bg-1: #0a0f16;
+  --panel: #10141b;
+  --panel-2: #16324d80;
+  --border: #0388ff;
+  --text: #f5f9ff;
+  --text-dim: #86a0ba;
+  --accent: #0388ff;
+  --accent-2: #4dabff;
+  --green: #2ecc71;
+  --gray: #30353b;
+  --danger: #ff5c5c;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(1200px 600px at 50% -10%, rgba(3, 136, 255, 0.28) 0%, var(--bg-0) 55%), var(--bg-0);
+  color: var(--text);
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 16px 80px;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.app-header h1 {
+  font-size: clamp(24px, 5vw, 36px);
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+.app-header .accent {
+  color: var(--accent);
+  text-shadow: 0 0 24px rgba(3, 136, 255, 0.45);
+}
+
+.subtitle {
+  color: var(--text-dim);
+  margin: 0;
+  font-size: 14px;
+}
+
+.status {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 40px 0;
+}
+
+.hidden { display: none !important; }
+
+.reveal-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.reveal-photo {
+  width: 300px;
+  height: 300px;
+  max-width: 80vw;
+  max-height: 80vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.reveal-photo .reveal-mark {
+  font-size: 72px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+
+.reveal-photo .reveal-initial {
+  font-size: 48px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.reveal-photo img {
+  width: 100%;
+  height: 100%;
+  /* 이미지가 좌우로 길거나(가로) 위아래로 길면(세로) 정사각형 틀에 맞춰
+     중앙 부분만 남기고 나머지는 잘라낸다 */
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  /* 원본이 300px보다 큰 경우 축소했을 때 자글거림/화질 저하가 없도록 브라우저의
+     고품질 축소 렌더링을 명시적으로 사용하고, Safari에서 다운스케일 시 생기는
+     시머링(shimmering)을 GPU 합성으로 완화한다 */
+  image-rendering: auto;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.reveal-name {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+.guess-box {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+}
+
+#guessInput {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #0b0e13;
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+#guessInput:focus {
+  border-color: var(--accent);
+}
+
+#guessInput.shake {
+  animation: shake 0.35s;
+  border-color: var(--danger);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+#submitBtn {
+  padding: 14px 22px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.15s;
+}
+
+#submitBtn:hover { filter: brightness(1.08); }
+#submitBtn:active { transform: scale(0.97); }
+#submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.suggestions {
+  position: absolute;
+  z-index: 10;
+  left: 16px;
+  right: 16px;
+  top: 100%;
+  margin-top: 6px;
+  background: #0b0e13;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  list-style: none;
+  padding: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+}
+
+.suggestions li {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text);
+}
+
+.suggestions li:hover,
+.suggestions li.active {
+  background: rgba(3, 136, 255, 0.22);
+}
+
+.suggestions li .used-tag {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 2px 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.ghost-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ghost-btn:hover {
+  background: var(--panel-2);
+  border-color: var(--accent);
+}
+
+.board-wrap {
+  overflow-x: auto;
+}
+
+.board {
+  min-width: 560px;
+}
+
+.board-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.board-head {
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.board-head .cell-name { text-align: left; padding-left: 6px; }
+
+.cell {
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cell-name {
+  justify-content: flex-start;
+  text-align: left;
+  padding-left: 6px;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.guess-row {
+  animation: pop-in 0.25s ease;
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.badge {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #ffffff;
+  background: #000000;
+  border: 2px solid var(--gray);
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.badge.match {
+  border-color: var(--green);
+  box-shadow: 0 0 14px rgba(46, 204, 113, 0.4);
+}
+
+.badge.unknown {
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge .arrow {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.badge .arrow.up { color: #ffd166; }
+.badge .arrow.down { color: #7dd3ff; }
+
+.badge.gender-symbol {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.badge-crew {
+  padding: 0;
+  overflow: visible;
+}
+
+.badge-crew img {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: contain;
+  display: block;
+}
+
+.badge-crew .no-crew {
+  font-size: 20px;
+}
+
+.badge-crew .no-crew.text-fallback {
+  font-size: 13px;
+  font-weight: 700;
+  max-width: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* tooltip for crew badge */
+[data-tooltip] {
+  cursor: help;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #05070a;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+  border: 1px solid var(--border);
+  z-index: 5;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 5, 9, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.modal-content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  color: var(--accent);
+}
+
+.win-meta {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.modal-content button {
+  margin-top: 12px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .board { min-width: 460px; }
+  .badge { width: 54px; height: 54px; font-size: 12px; }
+  .badge-crew img { width: 38px; height: 38px; }
+  .reveal-photo { width: 220px; height: 220px; }
+  .reveal-photo .reveal-mark { font-size: 56px; }
+  .reveal-photo .reveal-initial { font-size: 40px; }
+}
+
+@media (prefers-color-scheme: light) {
+  html, body {
+    background: radial-gradient(1200px 600px at 50% -10%, #d3ebff 0%, #f5f9ff 55%), #f5f9ff;
+    color: #0b1626;
+  }
+  :root {
+    --panel: #ffffff;
+    --panel-2: #e6f2ff;
+    --border: #0388ff;
+    --text: #0b1626;
+    --text-dim: #51687f;
+    --gray: #aeb6bd;
+    --accent-2: #0388ff;
+  }
+  #guessInput { background: #ffffff; color: #0b1626; }
+  .suggestions { background: #ffffff; }
+  .suggestions li:hover,
+  .suggestions li.active { background: rgba(3, 136, 255, 0.12); }
+  #submitBtn, .modal-content button { color: #ffffff; }
+  [data-tooltip]::after { background: #0b1626; color: #fff; }
+}
