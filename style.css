@@ -9,7 +9,6 @@
   --text-dim: #86a0ba;
   --accent: #0388ff;
   --accent-2: #4dabff;
-  --green: #2ecc71;
   --gray: #30353b;
   --danger: #ff5c5c;
   --radius: 16px;
@@ -311,8 +310,9 @@ html, body {
 }
 
 .badge.match {
-  border-color: var(--green);
-  box-shadow: 0 0 14px rgba(46, 204, 113, 0.4);
+  background: var(--accent);
+  border-color: var(--accent-2);
+  box-shadow: 0 0 14px rgba(3, 136, 255, 0.5);
 }
 
 .badge.unknown {
