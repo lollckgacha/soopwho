@@ -23,12 +23,20 @@
         <div id="revealName" class="reveal-name hidden"></div>
       </div>
 
-      <div class="guess-box">
+      <div class="guess-box" id="guessBox">
         <div class="input-row">
           <input id="guessInput" type="text" placeholder="스트리머 이름을 입력하세요" autocomplete="off" />
           <button id="submitBtn">맞히기</button>
         </div>
         <ul id="suggestions" class="suggestions hidden"></ul>
+      </div>
+
+      <div class="result-panel hidden" id="resultPanel">
+        <p id="resultText"></p>
+        <div class="result-actions">
+          <button id="playAgainBtn">🔀 다른 문제 도전하기</button>
+          <a id="stationLinkBtn" class="station-link-btn hidden" href="#" target="_blank" rel="noopener noreferrer">📺 방송국 가기</a>
+        </div>
       </div>
 
       <div class="toolbar">
@@ -50,15 +58,6 @@
         </div>
       </div>
     </main>
-
-    <div id="winModal" class="modal hidden">
-      <div class="modal-content">
-        <h2>🎉 정답입니다!</h2>
-        <p id="winText"></p>
-        <p id="winMeta" class="win-meta"></p>
-        <button id="playAgainBtn">🔀 다른 문제 도전하기</button>
-      </div>
-    </div>
   </div>
 
   <script src="app.js"></script>

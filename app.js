@@ -15,6 +15,7 @@ let guessedNames = [];
 const $ = (sel) => document.querySelector(sel);
 const loadingEl = $("#loading");
 const gameEl = $("#game");
+const guessBoxEl = $("#guessBox");
 const inputEl = $("#guessInput");
 const submitBtn = $("#submitBtn");
 const suggestionsEl = $("#suggestions");
@@ -22,10 +23,10 @@ const boardBodyEl = $("#boardBody");
 const guessCountEl = $("#guessCount");
 const shuffleBtn = $("#shuffleBtn");
 const giveupBtn = $("#giveupBtn");
-const winModal = $("#winModal");
-const winText = $("#winText");
-const winMeta = $("#winMeta");
+const resultPanelEl = $("#resultPanel");
+const resultTextEl = $("#resultText");
 const playAgainBtn = $("#playAgainBtn");
+const stationLinkBtn = $("#stationLinkBtn");
 const revealPhotoEl = $("#revealPhoto");
 const revealNameEl = $("#revealName");
 
@@ -67,13 +68,20 @@ function startNewGame(newTarget) {
   guessedNames = [];
   boardBodyEl.innerHTML = "";
   updateGuessCount();
-  winModal.classList.add("hidden");
   resetReveal();
+  showRoundInProgress();
   inputEl.value = "";
-  inputEl.disabled = false;
-  submitBtn.disabled = false;
   saveState();
   inputEl.focus();
+}
+
+// 라운드 진행 중 UI 상태 (입력창 보이기, 결과 패널 숨기기)
+function showRoundInProgress() {
+  resultPanelEl.classList.add("hidden");
+  guessBoxEl.classList.remove("hidden");
+  giveupBtn.classList.remove("hidden");
+  inputEl.disabled = false;
+  submitBtn.disabled = false;
 }
 
 function restoreOrStartNewGame() {
@@ -87,11 +95,16 @@ function restoreOrStartNewGame() {
       resetReveal();
       (saved.guessedNames || []).forEach((name) => {
         const s = streamers.find((st) => st.name === name);
-        if (s) renderGuessRow(s);
+        if (s) {
+          renderGuessRow(s);
+          guessedNames.push(s.name);
+        }
       });
       updateGuessCount();
       if (saved.won) {
         showWin();
+      } else {
+        showRoundInProgress();
       }
       return;
     }
@@ -400,13 +413,23 @@ function numberBadge(value, cmp, formatter) {
 }
 
 function showWin(gaveUp) {
-  inputEl.disabled = true;
-  submitBtn.disabled = true;
-  winText.textContent = gaveUp
-    ? `아쉽지만 정답은 "${target.name}" 였습니다.`
-    : `정답은 "${target.name}" 였습니다! (${guessedNames.length}번 시도)`;
-  winMeta.textContent = target.stationUrl ? target.stationUrl : "";
-  winModal.classList.remove("hidden");
+  guessBoxEl.classList.add("hidden");
+  giveupBtn.classList.add("hidden");
+  suggestionsEl.classList.add("hidden");
+
+  resultTextEl.textContent = gaveUp
+    ? `아쉽지만 정답은 "${target.name}" 였습니다. (${guessedNames.length}번 시도)`
+    : `🎉 정답입니다! "${target.name}" (${guessedNames.length}번 시도)`;
+
+  if (target.stationUrl) {
+    stationLinkBtn.href = target.stationUrl;
+    stationLinkBtn.classList.remove("hidden");
+  } else {
+    stationLinkBtn.classList.add("hidden");
+  }
+
+  resultPanelEl.classList.remove("hidden");
+
   revealTarget(target);
 }
 

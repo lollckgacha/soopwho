@@ -390,48 +390,59 @@ html, body {
   transform: translateX(-50%) translateY(0);
 }
 
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(2, 5, 9, 0.78);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  z-index: 100;
-}
-
-.modal-content {
+.result-panel {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 32px;
-  max-width: 420px;
+  padding: 24px 16px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
-.modal-content h2 {
-  margin-top: 0;
-  color: var(--accent);
+.result-panel p {
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 700;
 }
 
-.win-meta {
-  color: var(--text-dim);
-  font-size: 13px;
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
 }
 
-.modal-content button {
-  margin-top: 12px;
-  padding: 12px 20px;
+.result-panel button,
+.station-link-btn {
+  padding: 12px 22px;
   border-radius: 10px;
-  border: none;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #ffffff;
   font-weight: 700;
   cursor: pointer;
   font-size: 14px;
+  transition: filter 0.15s, transform 0.1s, background 0.15s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
+
+.result-panel button {
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #ffffff;
+}
+
+.station-link-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.result-panel button:hover,
+.station-link-btn:hover { filter: brightness(1.08); }
+.result-panel button:active,
+.station-link-btn:active { transform: scale(0.97); }
+.station-link-btn:hover { background: var(--panel-2); }
 
 @media (max-width: 600px) {
   .board { min-width: 460px; }
@@ -460,6 +471,6 @@ html, body {
   .suggestions { background: #ffffff; }
   .suggestions li:hover,
   .suggestions li.active { background: rgba(3, 136, 255, 0.12); }
-  #submitBtn, .modal-content button { color: #ffffff; }
+  #submitBtn, .result-panel button { color: #ffffff; }
   [data-tooltip]::after { background: #0b1626; color: #fff; }
 }
