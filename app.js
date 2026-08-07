@@ -6,7 +6,6 @@
 
 const FIREBASE_URL = "https://dongpa2026-2fda5-default-rtdb.asia-southeast1.firebasedatabase.app/";
 const DATA_PATH = "soop_who.json";
-const STORAGE_KEY = "soopWhoAreYa.v1";
 const STATS_KEY = "soopWhoAreYa.stats.v1";
 const VOLUME_KEY = "soopWhoAreYa.volume";
 
@@ -16,7 +15,8 @@ let guessedNames = [];
 let crewImageByName = {}; // 크루명 -> 이미지 경로 (대표 크루가 아닌 다른 소속 크루를 힌트로 보여줄 때 필요)
 let isTutorial = false;
 let tutorialStepIndex = 0;
-let volume = 70; // 사운드 볼륨 (bindEvents() -> initSound() 에서 곧바로 참조하므로 맨 위에서 선언해야 한다)
+let currentMode = "all"; // "all" | "under2000" | "over2000" | "over5000" | "over10000"
+let volume = 50; // 사운드/배경음악 기본 볼륨 (bindEvents() -> initSound() 에서 곧바로 참조하므로 맨 위에서 선언해야 한다)
 let audioCtx = null;
 
 const $ = (sel) => document.querySelector(sel);
@@ -27,6 +27,7 @@ const statsScreenEl = $("#statsScreen");
 const gameScreenEl = $("#gameScreen");
 
 // 메인 화면
+const homeMenuEl = $("#homeMenu");
 const startGameBtn = $("#startGameBtn");
 const tutorialBtn = $("#tutorialBtn");
 const statsBtn = $("#statsBtn");
@@ -34,6 +35,12 @@ const settingsBtn = $("#settingsBtn");
 const settingsPopoverEl = $("#settingsPopover");
 const homeVolumeSliderEl = $("#homeVolumeSlider");
 const homeVolumeIconEl = $("#homeVolumeIcon");
+const settingsResetStatsBtn = $("#settingsResetStatsBtn");
+
+// 출제 범위 선택 메뉴
+const modeMenuEl = $("#modeMenu");
+const modeBtns = Array.from(document.querySelectorAll(".mode-btn"));
+const modeBackBtn = $("#modeBackBtn");
 
 // 상단바 (게임/통계 화면 공용)
 const homeBtn = $("#homeBtn");
@@ -62,6 +69,9 @@ const resetStatsBtn = $("#resetStatsBtn");
 // 게임 화면
 const loadingEl = $("#loading");
 const gameEl = $("#game");
+const givenHintsEl = $("#givenHints");
+const givenCrewHintEl = $("#givenCrewHint");
+const givenAgeHintEl = $("#givenAgeHint");
 const guessBoxEl = $("#guessBox");
 const inputEl = $("#guessInput");
 const submitBtn = $("#submitBtn");
@@ -116,7 +126,30 @@ function showScreen(name) {
 function goHome() {
   isTutorial = false;
   hideTutorialUI();
+  resetGameState(); // 메인화면으로 나가면 진행 중이던 문제는 초기화한다
+  showHomeMenu(); // 출제 범위 선택 화면이 열려 있었다면 메인 메뉴로 되돌린다
   showScreen("home");
+}
+
+// 메인 화면의 "메인 메뉴" <-> "출제 범위 선택" 전환
+function showHomeMenu() {
+  modeMenuEl.classList.add("hidden");
+  homeMenuEl.classList.remove("hidden");
+}
+
+function showModeMenu() {
+  homeMenuEl.classList.add("hidden");
+  modeMenuEl.classList.remove("hidden");
+}
+
+// 진행 중인 라운드를 완전히 비운다 (다음에 "게임 시작"을 누르면 새 문제로 시작)
+function resetGameState() {
+  target = null;
+  guessedNames = [];
+  boardBodyEl.innerHTML = "";
+  updateGuessCount();
+  resetReveal();
+  showRoundInProgress();
 }
 
 async function runInGameScreen(startFn) {
@@ -141,14 +174,39 @@ async function runInGameScreen(startFn) {
 function enterRealGame() {
   isTutorial = false;
   hideTutorialUI();
-  runInGameScreen(() => restoreOrStartNewGame());
+  // 매번 새 문제로 시작한다 (이전 진행 상황을 이어서 하지 않음)
+  runInGameScreen(() => startNewGame());
 }
 
 // ---------------------------------------------------------
 // 게임 상태
 // ---------------------------------------------------------
+
+// 현재 선택된 출제 범위(currentMode)에 맞는 스트리머 목록만 걸러낸다.
+// 예: "over2000" 이면 2천~5천 사이가 아니라 2천 이상 전부가 대상이다 (하한선만 있는 필터).
+// 애청자 수가 비공개(null)인 스트리머는 범위를 확인할 수 없으므로 "전체 모드"가 아닐 때는 제외한다.
+function getModeFilteredPool() {
+  switch (currentMode) {
+    case "under2000":
+      return streamers.filter((s) => s.fanCount != null && s.fanCount < 2000);
+    case "over2000":
+      return streamers.filter((s) => s.fanCount != null && s.fanCount >= 2000);
+    case "over5000":
+      return streamers.filter((s) => s.fanCount != null && s.fanCount >= 5000);
+    case "over10000":
+      return streamers.filter((s) => s.fanCount != null && s.fanCount >= 10000);
+    default:
+      return streamers;
+  }
+}
+
 function pickRandomTarget(excludeName) {
-  const pool = excludeName ? streamers.filter((s) => s.name !== excludeName) : streamers;
+  let pool = getModeFilteredPool();
+  if (pool.length === 0) pool = streamers; // 해당 범위에 아무도 없으면 안전하게 전체에서 뽑는다
+  if (excludeName) {
+    const filtered = pool.filter((s) => s.name !== excludeName);
+    if (filtered.length > 0) pool = filtered;
+  }
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -159,9 +217,20 @@ function startNewGame(newTarget) {
   updateGuessCount();
   resetReveal();
   showRoundInProgress();
+  showGivenHints();
   inputEl.value = "";
-  saveState();
   inputEl.focus();
+}
+
+// 정답 스트리머가 처음부터 크루 무소속/나이 비공개면, 시도 횟수 차감 없이 미리 알려준다
+// (안 그러면 사람들이 애초에 확인할 수 없는 정보를 맞히려고 계속 시도를 낭비하게 된다)
+function showGivenHints() {
+  const crewless = target && getCrewNames(target).length === 0;
+  const ageUnknown = target && target.age == null;
+
+  givenCrewHintEl.classList.toggle("hidden", !crewless);
+  givenAgeHintEl.classList.toggle("hidden", !ageUnknown);
+  givenHintsEl.classList.toggle("hidden", !(crewless || ageUnknown));
 }
 
 // 라운드 진행 중 UI 상태 (입력창 보이기, 결과 패널 숨기기)
@@ -171,59 +240,9 @@ function showRoundInProgress() {
   giveupBtn.classList.remove("hidden");
   inputEl.disabled = false;
   submitBtn.disabled = false;
-}
-
-function restoreOrStartNewGame() {
-  const saved = loadState();
-  if (saved && saved.targetName) {
-    const foundTarget = streamers.find((s) => s.name === saved.targetName);
-    if (foundTarget) {
-      target = foundTarget;
-      guessedNames = [];
-      boardBodyEl.innerHTML = "";
-      resetReveal();
-      (saved.guessedNames || []).forEach((name) => {
-        const s = streamers.find((st) => st.name === name);
-        if (s) {
-          renderGuessRow(s);
-          guessedNames.push(s.name);
-        }
-      });
-      updateGuessCount();
-      if (saved.won) {
-        showWin();
-      } else {
-        showRoundInProgress();
-      }
-      return;
-    }
-  }
-  startNewGame();
-}
-
-function saveState() {
-  if (isTutorial) return; // 튜토리얼 진행 상황은 실제 게임 저장 데이터에 영향 주지 않는다
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        targetName: target ? target.name : null,
-        guessedNames,
-        won: guessedNames.includes(target ? target.name : ""),
-      })
-    );
-  } catch (e) {
-    /* localStorage 사용 불가 시 무시 */
-  }
-}
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
+  // 지난 라운드가 튜토리얼 완료 상태였다면 버튼을 기본 상태로 되돌린다
+  playAgainBtn.textContent = "🔀 다른 문제 도전하기";
+  playAgainBtn.dataset.mode = "";
 }
 
 // ---------------------------------------------------------
@@ -231,7 +250,14 @@ function loadState() {
 // ---------------------------------------------------------
 function bindEvents() {
   // 메인 화면
-  startGameBtn.addEventListener("click", enterRealGame);
+  startGameBtn.addEventListener("click", showModeMenu);
+  modeBackBtn.addEventListener("click", showHomeMenu);
+  modeBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentMode = btn.dataset.mode || "all";
+      enterRealGame();
+    });
+  });
   tutorialBtn.addEventListener("click", startTutorial);
   statsBtn.addEventListener("click", () => {
     renderStats();
@@ -242,13 +268,9 @@ function bindEvents() {
   homeBtn.addEventListener("click", goHome);
   statsHomeBtn.addEventListener("click", goHome);
 
-  // 통계
-  resetStatsBtn.addEventListener("click", () => {
-    if (confirm("통계를 초기화할까요? 이 작업은 되돌릴 수 없습니다.")) {
-      saveStats({ counts: {} });
-      renderStats();
-    }
-  });
+  // 통계 초기화 (통계 화면 버튼 / 설정 팝업 버튼 둘 다 같은 동작)
+  resetStatsBtn.addEventListener("click", handleResetStats);
+  settingsResetStatsBtn.addEventListener("click", handleResetStats);
 
   // 사운드 (게임 화면 상단바의 🔊 버튼)
   volumeSliderEl.addEventListener("input", () => {
@@ -291,6 +313,14 @@ function bindEvents() {
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       moveSuggestionSelection(e.key === "ArrowDown" ? 1 : -1);
       e.preventDefault();
+    } else if (e.key === "Tab") {
+      // 자동완성 목록 맨 위에 있는 스트리머 이름을 입력창에 채워준다 (제출은 아직 안 함)
+      const topLi = suggestionsEl.querySelector("li");
+      if (topLi && !suggestionsEl.classList.contains("hidden")) {
+        e.preventDefault();
+        inputEl.value = topLi.querySelector("span").textContent;
+        suggestionsEl.classList.add("hidden");
+      }
     }
   });
   inputEl.addEventListener("input", renderSuggestions);
@@ -308,11 +338,16 @@ function bindEvents() {
       renderGuessRow(target);
       guessedNames.push(target.name);
       updateGuessCount();
-      saveState();
     }
     showWin(true);
   });
-  playAgainBtn.addEventListener("click", () => startNewGame(pickRandomTarget(target ? target.name : null)));
+  playAgainBtn.addEventListener("click", () => {
+    if (playAgainBtn.dataset.mode === "tutorial-end") {
+      goHome();
+    } else {
+      startNewGame(pickRandomTarget(target ? target.name : null));
+    }
+  });
 
   initSound();
 }
@@ -400,7 +435,6 @@ function submitGuess(rawName) {
   updateGuessCount();
   inputEl.value = "";
   suggestionsEl.classList.add("hidden");
-  saveState();
 
   if (isTutorial && tutorialStepIndex === 0) {
     advanceTutorial();
@@ -470,9 +504,21 @@ function resolveCrewImage(streamer, crewName) {
   return crewImageByName[crewName] || "";
 }
 
+// 힌트는 항상 "시도한(추측한) 스트리머"의 정보를 기준으로 보여준다.
+// - 둘 다 비공개(guessVal == null && ansVal == null)면 "이 사람도 정답처럼 비공개다" 라는
+//   뜻이므로 일치로 보고 파란색으로 표시한다.
+// - 추측한 사람만 비공개면(guessVal == null, ansVal은 있음) 비교 자체가 안 되니 그냥 "비공개".
+// - 정답 쪽만 비공개(ansVal == null)면 비교는 할 수 없지만, 추측한 사람의 실제 값은
+//   그대로 보여준다(그 사람에 대한 정보이므로) — 다만 화살표는 못 띄우고 일치로도 안 본다.
 function compareNumber(guessVal, ansVal) {
-  if (guessVal == null || ansVal == null) {
+  if (guessVal == null && ansVal == null) {
+    return { match: true, unknown: true, bothUnknown: true, direction: null };
+  }
+  if (guessVal == null) {
     return { match: false, unknown: true, direction: null };
+  }
+  if (ansVal == null) {
+    return { match: false, unknown: false, direction: null, targetUnknown: true };
   }
   if (guessVal === ansVal) return { match: true, unknown: false, direction: null };
   return { match: false, unknown: false, direction: guessVal < ansVal ? "up" : "down" };
@@ -575,7 +621,8 @@ function numberBadge(value, cmp, formatter) {
   const div = document.createElement("div");
   div.className = "cell";
   const badge = document.createElement("div");
-  badge.className = "badge" + (cmp.unknown ? " unknown" : cmp.match ? " match" : "");
+  // 둘 다 비공개(bothUnknown)면 "비공개"라는 텍스트는 그대로지만 일치로 보고 파란색을 켠다.
+  badge.className = "badge" + (cmp.bothUnknown ? " match" : cmp.unknown ? " unknown" : cmp.match ? " match" : "");
 
   if (cmp.unknown) {
     badge.textContent = "비공개";
@@ -661,7 +708,7 @@ function revealTarget(streamer) {
 // ---------------------------------------------------------
 const TUTORIAL_STEPS = [
   {
-    text: "이 게임은 힌트를 보고 숲(SOOP) 스트리머를 맞히는 게임이에요. 아래 입력창에 스트리머 이름을 입력하고 '맞히기'를 눌러 첫 힌트를 확인해보세요!",
+    text: "이 게임은 힌트를 보고 숲(SOOP) 스트리머를 맞히는 게임이에요.\n아래 입력창에 스트리머 이름을 입력하고 '입력'을 눌러 첫 힌트를 확인해보세요!",
     highlight: () => guessBoxEl,
   },
   {
@@ -718,12 +765,13 @@ function advanceTutorial() {
   showTutorialStep(tutorialStepIndex);
 }
 
+// 튜토리얼 중 정답을 맞히면(또는 포기하면) 안내 배너는 닫고,
+// 결과 패널의 "다른 문제 도전하기" 버튼을 "메인화면으로 가기" 버튼으로 바꿔서 보여준다.
 function showTutorialCompletion() {
   clearHighlights();
-  tutorialTextEl.textContent = "🎉 튜토리얼을 완료했어요! 이제 실전에서 도전해보세요.";
-  tutorialNextBtn.classList.add("hidden");
-  tutorialSkipBtn.textContent = "🏠 메인으로";
-  tutorialBannerEl.classList.remove("hidden");
+  tutorialBannerEl.classList.add("hidden");
+  playAgainBtn.textContent = "🏠 메인화면으로 가기";
+  playAgainBtn.dataset.mode = "tutorial-end";
 }
 
 function clearHighlights() {
@@ -761,6 +809,16 @@ function recordWin(guessCount) {
   const key = String(guessCount);
   stats.counts[key] = (stats.counts[key] || 0) + 1;
   saveStats(stats);
+}
+
+// 통계 화면의 "통계 초기화" 버튼과 설정 팝업의 "통계 기록 초기화" 버튼이 공유하는 로직
+function handleResetStats() {
+  if (!confirm("통계를 초기화할까요? 이 작업은 되돌릴 수 없습니다.")) return;
+  saveStats({ counts: {} });
+  // 통계 화면이 지금 보이고 있으면 화면도 바로 갱신한다
+  if (!statsScreenEl.classList.contains("hidden")) {
+    renderStats();
+  }
 }
 
 function renderStats() {

@@ -9,6 +9,8 @@
   --text-dim: #86a0ba;
   --accent: #0388ff;
   --accent-2: #4dabff;
+  --sky: #38bdf8;      /* 정답과 일치하는 힌트 배경색 (하늘색) */
+  --sky-2: #7dd3fc;
   --gray: #30353b;
   --danger: #ff5c5c;
   --radius: 16px;
@@ -106,6 +108,23 @@ html, body {
 
 .home-btn.primary:hover { filter: brightness(1.08); }
 
+.mode-menu-title {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.mode-btn {
+  font-size: 15px;
+}
+
+#modeBackBtn {
+  align-self: center;
+  margin-top: 4px;
+}
+
 .footer-box {
   max-width: 480px;
   margin: 0 auto;
@@ -137,20 +156,26 @@ html, body {
    게임/통계 화면 상단바 (홈 버튼, 사운드 버튼)
 --------------------------------------------------------- */
 .game-topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 10px;
   margin-bottom: 18px;
+}
+
+.game-topbar > .icon-btn:first-child {
+  justify-self: start;
+}
+
+.game-topbar > .sound-control {
+  justify-self: end;
 }
 
 .screen-title {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-}
-
-.topbar-spacer {
-  flex: 1;
+  text-align: center;
 }
 
 .icon-btn {
@@ -201,7 +226,13 @@ html, body {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 14px 18px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -217,6 +248,22 @@ html, body {
 .settings-popover input[type="range"] {
   flex: 1;
   accent-color: var(--accent);
+}
+
+.settings-reset-btn {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.settings-reset-btn:hover {
+  background: rgba(255, 92, 92, 0.12);
 }
 
 /* ---------------------------------------------------------
@@ -235,14 +282,31 @@ html, body {
   margin: 0 0 10px;
   font-size: 14px;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.6;
+  white-space: pre-line; /* 텍스트 안의 \n 줄바꿈을 그대로 표시 */
 }
 
 .tutorial-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: center;
+  flex-wrap: wrap;
 }
+
+.tutorial-end-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.tutorial-end-btn:hover { background: var(--panel-2); }
+.tutorial-end-btn:active { transform: scale(0.97); }
 
 .text-btn {
   background: none;
@@ -414,6 +478,25 @@ html, body {
   font-weight: 800;
   letter-spacing: 0.01em;
   text-align: center;
+}
+
+/* 정답 스트리머가 처음부터 크루 무소속/나이 비공개일 때, 시도 횟수 차감 없이 미리 알려주는 칩 */
+.given-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.given-hint-chip {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
 }
 
 .guess-box {
@@ -607,9 +690,9 @@ html, body {
 }
 
 .badge.match {
-  background: var(--accent);
-  border-color: var(--accent-2);
-  box-shadow: 0 0 14px rgba(3, 136, 255, 0.5);
+  background: var(--sky);
+  border-color: var(--sky-2);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
 }
 
 .badge.unknown {
