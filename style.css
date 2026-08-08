@@ -32,6 +32,15 @@ html, body {
   padding: 32px 16px 80px;
 }
 
+/* 게임 화면일 때만(showScreen()이 붙이는 클래스) 넓은 화면에서 더 넓게 쓴다 — 힌트 보드가
+   이름 칸까지 7열이라 760px 폭에서는 항상 가로 스크롤이 생겼던 것을 해결한다.
+   홈/통계 화면은 이 클래스가 안 붙으므로 원래 폭(760px) 그대로 유지된다. */
+@media (min-width: 900px) {
+  .app.app-wide {
+    max-width: 1040px;
+  }
+}
+
 .app-header {
   text-align: center;
   margin-bottom: 28px;
@@ -1159,7 +1168,17 @@ html, body {
 @media (max-width: 600px) {
   .app { padding: 16px 12px 60px; }
 
-  .board { min-width: 620px; }
+  /* 게임 보드(힌트 6종류+이름)는 더 이상 가로로 늘리지 않고, 대신 이름 칸은 한 줄을 통째로 쓰고
+     나머지 6개 힌트 칸은 3개씩 두 줄로 접어서 가로 스크롤 없이 다 보이게 한다.
+     도감(#dexList)은 같은 .board-row 클래스를 쓰지만 .board-wrap 밖에 있어서 영향받지 않는다. */
+  .board { min-width: 0; }
+  .board-wrap .board-row {
+    grid-template-columns: repeat(3, 1fr);
+    row-gap: 8px;
+  }
+  .board-wrap .board-row .cell-name {
+    grid-column: 1 / -1;
+  }
   .dex-list { min-width: 500px; }
   .dex-panel { padding: 14px 12px; max-height: 92vh; }
   .dex-fan-input { width: 84px; }

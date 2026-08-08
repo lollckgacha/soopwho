@@ -46,6 +46,7 @@ let dexSortDir = "asc"; // "asc" | "desc"
 const $ = (sel) => document.querySelector(sel);
 
 // 화면
+const appEl = $(".app");
 const homeScreenEl = $("#homeScreen");
 const statsScreenEl = $("#statsScreen");
 const gameScreenEl = $("#gameScreen");
@@ -170,6 +171,10 @@ function showScreen(name) {
   if (name === "home") homeScreenEl.classList.remove("hidden");
   if (name === "stats") statsScreenEl.classList.remove("hidden");
   if (name === "game") gameScreenEl.classList.remove("hidden");
+  // 게임 화면은 힌트 보드가 6종류 힌트+이름 칸까지 있어 넓은 화면(PC)에서는 가로 스크롤 없이
+  // 다 보이도록 .app 자체를 더 넓게 쓴다(.app-wide, 데스크탑 폭에서만 CSS로 적용) — 홈/통계
+  // 화면은 원래 폭 그대로 유지한다.
+  appEl.classList.toggle("app-wide", name === "game");
 }
 
 function goHome() {
