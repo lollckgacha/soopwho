@@ -292,13 +292,20 @@ function enterRealGame() {
 // 게임 상태
 // ---------------------------------------------------------
 
+// 방송 시작 연도가 비공개(null)인 스트리머는 정답으로 출제하지 않는다 — 성별/나이는 비공개여도
+// 상관없지만, 방송 시작만큼은 항상 채워져 있는 스트리머만 등장하게 한다.
+function getStartYearFilledPool() {
+  return streamers.filter((s) => s.startYear != null);
+}
+
 // 현재 선택된 출제 범위(currentRangeMin~currentRangeMax)에 맞는 스트리머만 걸러낸다.
 // 하한은 포함, 상한은 미포함 — 예: [2000, Infinity) 면 "2천 이상 전부", [0, 2000) 면 "2천 미만 전부"
 // (2천~5천처럼 좁은 구간으로 잘못 해석되지 않도록 항상 이 규칙을 지킨다).
 // 애청자 수가 비공개(null)인 스트리머는 범위를 확인할 수 없으므로, 전체 범위가 아닐 때는 제외한다.
 function getModeFilteredPool() {
-  if (currentRangeMin === 0 && currentRangeMax === Infinity) return streamers;
-  return streamers.filter((s) => {
+  const base = getStartYearFilledPool();
+  if (currentRangeMin === 0 && currentRangeMax === Infinity) return base;
+  return base.filter((s) => {
     if (s.fanCount == null) return false;
     if (s.fanCount < currentRangeMin) return false;
     if (currentRangeMax !== Infinity && s.fanCount >= currentRangeMax) return false;
@@ -308,7 +315,10 @@ function getModeFilteredPool() {
 
 function pickRandomTarget(excludeName) {
   let pool = getModeFilteredPool();
-  if (pool.length === 0) pool = streamers; // 해당 범위에 아무도 없으면 안전하게 전체에서 뽑는다
+  // 해당 범위에 아무도 없으면 방송 시작이 채워진 전체에서 뽑고, 그마저도 없으면(있을 수 없지만
+  // 안전장치로) 전체 스트리머에서 뽑는다.
+  if (pool.length === 0) pool = getStartYearFilledPool();
+  if (pool.length === 0) pool = streamers;
   if (excludeName) {
     const filtered = pool.filter((s) => s.name !== excludeName);
     if (filtered.length > 0) pool = filtered;
