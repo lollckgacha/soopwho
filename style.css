@@ -910,6 +910,28 @@ html, body {
   padding: 4px 0 10px;
 }
 
+.dex-sort {
+  cursor: pointer;
+  user-select: none;
+  gap: 3px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.dex-sort:hover {
+  color: var(--accent);
+}
+
+.dex-sort.active {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.dex-sort .sort-arrow {
+  font-size: 10px;
+  color: var(--accent);
+}
+
 .dex-row {
   padding: 8px 2px;
   border-bottom: 1px solid var(--panel-2);

@@ -40,6 +40,8 @@ let currentRangeMax = Infinity; // 출제 범위 상한(미포함), Infinity = �
 let confirmed = { gender: false, crew: false, startYear: false, age: false, fanCount: false }; // 정답 사진 옆 5칸 확정 여부
 let volume = 50; // 사운드/배경음악 기본 볼륨 (bindEvents() -> initSound() 에서 곧바로 참조하므로 맨 위에서 선언해야 한다)
 let audioCtx = null;
+let dexSortKey = "name"; // "name" | "startYear" | "age" | "fanCount" — 도감 정렬 기준
+let dexSortDir = "asc"; // "asc" | "desc"
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -131,6 +133,7 @@ const dexFanMaxInputEl = $("#dexFanMaxInput");
 const dexFilterResetBtn = $("#dexFilterResetBtn");
 const dexListBodyEl = $("#dexListBody");
 const dexEmptyEl = $("#dexEmpty");
+const dexSortHeaderEls = Array.from(document.querySelectorAll(".dex-sort"));
 
 // ---------------------------------------------------------
 // 데이터 로드 (페이지 열리면 바로 백그라운드에서 시작, 화면 전환과 무관하게 진행)
@@ -244,11 +247,48 @@ function renderDexList() {
     return true;
   });
 
-  filtered.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  filtered.sort((a, b) => compareDexRows(a, b));
 
   dexListBodyEl.innerHTML = "";
   filtered.forEach((s) => dexListBodyEl.appendChild(renderDexRow(s)));
   dexEmptyEl.classList.toggle("hidden", filtered.length > 0);
+  updateDexSortIndicators();
+}
+
+// 이름은 항상 가나다순 비교, 방송 시작/나이/애청자 수는 숫자 비교. 비공개(null)는 정렬 방향(오름차순/
+// 내림차순)과 무관하게 항상 맨 뒤로 보낸다 — 오름차순인데 비공개가 맨 위로 튀어나오면 헷갈리기 때문.
+function compareDexRows(a, b) {
+  if (dexSortKey === "name") {
+    const cmp = a.name.localeCompare(b.name, "ko");
+    return dexSortDir === "asc" ? cmp : -cmp;
+  }
+  const av = a[dexSortKey];
+  const bv = b[dexSortKey];
+  if (av == null && bv == null) return 0;
+  if (av == null) return 1;
+  if (bv == null) return -1;
+  const cmp = av - bv;
+  return dexSortDir === "asc" ? cmp : -cmp;
+}
+
+// 정렬 헤더(이름/방송 시작/나이/애청자 수) 클릭: 같은 항목을 다시 누르면 방향 반전,
+// 다른 항목을 누르면 그 항목의 오름차순으로 새로 시작한다.
+function setDexSort(key) {
+  if (dexSortKey === key) {
+    dexSortDir = dexSortDir === "asc" ? "desc" : "asc";
+  } else {
+    dexSortKey = key;
+    dexSortDir = "asc";
+  }
+  renderDexList();
+}
+
+function updateDexSortIndicators() {
+  dexSortHeaderEls.forEach((el) => {
+    const isActive = el.dataset.sort === dexSortKey;
+    el.classList.toggle("active", isActive);
+    el.querySelector(".sort-arrow").textContent = isActive ? (dexSortDir === "asc" ? "▲" : "▼") : "";
+  });
 }
 
 function renderDexRow(streamer) {
@@ -609,6 +649,7 @@ function bindEvents() {
   dexFanMinInputEl.addEventListener("input", renderDexList);
   dexFanMaxInputEl.addEventListener("input", renderDexList);
   dexFilterResetBtn.addEventListener("click", resetDexFilters);
+  dexSortHeaderEls.forEach((el) => el.addEventListener("click", () => setDexSort(el.dataset.sort)));
 
   // 상단바
   homeBtn.addEventListener("click", goHome);
