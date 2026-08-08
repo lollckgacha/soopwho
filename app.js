@@ -116,6 +116,21 @@ const playAgainBtn = $("#playAgainBtn");
 const stationLinkBtn = $("#stationLinkBtn");
 const revealPhotoEl = $("#revealPhoto");
 const revealNameEl = $("#revealName");
+const dexGameBtn = $("#dexGameBtn");
+
+// 버튜버 도감 (검색/필터로 전체 버튜버를 훑어보는 오버레이 모달 — 어느 화면에서 열어도
+// 그 화면의 진행 상태를 건드리지 않는다)
+const dexHomeBtn = $("#dexHomeBtn");
+const dexModalEl = $("#dexModal");
+const dexCloseBtn = $("#dexCloseBtn");
+const dexSearchInputEl = $("#dexSearchInput");
+const dexGenderFilterEl = $("#dexGenderFilter");
+const dexCrewFilterEl = $("#dexCrewFilter");
+const dexFanMinInputEl = $("#dexFanMinInput");
+const dexFanMaxInputEl = $("#dexFanMaxInput");
+const dexFilterResetBtn = $("#dexFilterResetBtn");
+const dexListBodyEl = $("#dexListBody");
+const dexEmptyEl = $("#dexEmpty");
 
 // ---------------------------------------------------------
 // 데이터 로드 (페이지 열리면 바로 백그라운드에서 시작, 화면 전환과 무관하게 진행)
@@ -171,6 +186,102 @@ function showModeMenu() {
   homeMenuEl.classList.add("hidden");
   modeMenuEl.classList.remove("hidden");
   setRangeFromIndexes();
+}
+
+// ---------------------------------------------------------
+// 버튜버 도감 — 홈 화면 "📖 버튜버 도감" 버튼과 게임 화면 툴바의 "📖 도감" 버튼 둘 다에서 연다.
+// 화면 전환(showScreen)이 아니라 현재 화면 위에 뜨는 오버레이 모달이라서, 게임 중에 열어도
+// 진행 중인 라운드(target/guessedNames/board 등)를 전혀 건드리지 않고 닫으면 그대로 이어서 할 수 있다.
+// ---------------------------------------------------------
+let dexCrewOptionsBuilt = false;
+
+async function openDex() {
+  dexModalEl.classList.remove("hidden");
+  await dataLoadPromise; // 홈 화면에서 게임을 한 번도 시작하지 않은 채 열었을 수도 있으므로 데이터 로드를 기다린다
+  if (!dexCrewOptionsBuilt) {
+    populateDexCrewFilter();
+    dexCrewOptionsBuilt = true;
+  }
+  renderDexList();
+  dexSearchInputEl.focus();
+}
+
+function closeDex() {
+  dexModalEl.classList.add("hidden");
+}
+
+// 실제 존재하는(멤버가 1명 이상인) 크루만 필터 목록에 올린다 — 크루 탭의 빈 플레이스홀더 행은 제외.
+function populateDexCrewFilter() {
+  const crewNames = new Set();
+  streamers.forEach((s) => getCrewNames(s).forEach((c) => crewNames.add(c)));
+  const sorted = Array.from(crewNames).sort((a, b) => a.localeCompare(b, "ko"));
+  sorted.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    dexCrewFilterEl.appendChild(opt);
+  });
+}
+
+function renderDexList() {
+  const query = dexSearchInputEl.value.trim().toLowerCase();
+  const genderFilter = dexGenderFilterEl.value;
+  const crewFilter = dexCrewFilterEl.value;
+  const fanMinRaw = dexFanMinInputEl.value.trim();
+  const fanMaxRaw = dexFanMaxInputEl.value.trim();
+  const fanMin = fanMinRaw === "" ? null : Number(fanMinRaw);
+  const fanMax = fanMaxRaw === "" ? null : Number(fanMaxRaw);
+
+  const filtered = streamers.filter((s) => {
+    if (query && !s.name.toLowerCase().includes(query)) return false;
+    if (genderFilter && s.gender !== genderFilter) return false;
+    if (crewFilter && !getCrewNames(s).includes(crewFilter)) return false;
+    if (fanMin != null || fanMax != null) {
+      if (s.fanCount == null) return false; // 애청자 수가 비공개면 범위를 확인할 수 없으니 제외
+      if (fanMin != null && s.fanCount < fanMin) return false;
+      if (fanMax != null && s.fanCount > fanMax) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+
+  dexListBodyEl.innerHTML = "";
+  filtered.forEach((s) => dexListBodyEl.appendChild(renderDexRow(s)));
+  dexEmptyEl.classList.toggle("hidden", filtered.length > 0);
+}
+
+function renderDexRow(streamer) {
+  const row = document.createElement("div");
+  row.className = "board-row dex-row";
+
+  row.appendChild(nameCell(streamer.name));
+  row.appendChild(dexTextCell(genderSymbol(streamer.gender) || "비공개"));
+
+  const crewNames = getCrewNames(streamer);
+  row.appendChild(dexTextCell(crewNames.length ? crewNames[0] : "무소속"));
+
+  row.appendChild(dexTextCell(streamer.startYear != null ? `${streamer.startYear}년` : "비공개"));
+  row.appendChild(dexTextCell(streamer.age != null ? `${streamer.age}세` : "비공개"));
+  row.appendChild(dexTextCell(formatFanCount(streamer.fanCount)));
+
+  return row;
+}
+
+function dexTextCell(text) {
+  const div = document.createElement("div");
+  div.className = "cell";
+  div.textContent = text;
+  return div;
+}
+
+function resetDexFilters() {
+  dexSearchInputEl.value = "";
+  dexGenderFilterEl.value = "";
+  dexCrewFilterEl.value = "";
+  dexFanMinInputEl.value = "";
+  dexFanMaxInputEl.value = "";
+  renderDexList();
 }
 
 // ---------------------------------------------------------
@@ -481,6 +592,23 @@ function bindEvents() {
     renderStats();
     showScreen("stats");
   });
+
+  // 버튜버 도감 (홈 화면 버튼 / 게임 화면 툴바 버튼 둘 다 같은 모달을 연다)
+  dexHomeBtn.addEventListener("click", openDex);
+  dexGameBtn.addEventListener("click", openDex);
+  dexCloseBtn.addEventListener("click", closeDex);
+  dexModalEl.addEventListener("click", (e) => {
+    if (e.target === dexModalEl) closeDex(); // 패널 바깥(어두운 배경) 클릭 시 닫기
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !dexModalEl.classList.contains("hidden")) closeDex();
+  });
+  dexSearchInputEl.addEventListener("input", renderDexList);
+  dexGenderFilterEl.addEventListener("change", renderDexList);
+  dexCrewFilterEl.addEventListener("change", renderDexList);
+  dexFanMinInputEl.addEventListener("input", renderDexList);
+  dexFanMaxInputEl.addEventListener("input", renderDexList);
+  dexFilterResetBtn.addEventListener("click", resetDexFilters);
 
   // 상단바
   homeBtn.addEventListener("click", goHome);

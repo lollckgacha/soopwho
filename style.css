@@ -813,6 +813,112 @@ html, body {
   border-color: var(--accent);
 }
 
+/* ---------------------------------------------------------
+   버튜버 도감 (검색/필터로 전체 버튜버 정보를 훑어보는 오버레이 모달)
+--------------------------------------------------------- */
+.dex-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 22, 38, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 12px;
+  z-index: 1000;
+}
+
+.dex-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.dex-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dex-search-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: #ffffff;
+  color: #000000;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.dex-search-input::placeholder {
+  color: #8a8f98;
+  font-weight: 600;
+}
+
+.dex-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dex-filter-select {
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: #ffffff;
+  color: #000000;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dex-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dex-fan-input {
+  width: 96px;
+  padding: 9px 6px;
+  font-size: 13px;
+}
+
+.dex-list-wrap {
+  overflow: auto;
+  flex: 1;
+}
+
+.dex-list {
+  min-width: 620px;
+}
+
+.dex-head {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+  padding: 4px 0 10px;
+}
+
+.dex-row {
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--panel-2);
+}
+
+.dex-row .cell {
+  font-size: 13px;
+}
+
 .board-wrap {
   overflow-x: auto;
 }
@@ -1024,6 +1130,9 @@ html, body {
   .app { padding: 16px 12px 60px; }
 
   .board { min-width: 540px; }
+  .dex-list { min-width: 500px; }
+  .dex-panel { padding: 14px 12px; max-height: 92vh; }
+  .dex-fan-input { width: 84px; }
   .badge { width: 54px; height: 54px; font-size: 12px; }
   .badge-crew img { width: 38px; height: 38px; }
   .reveal-photo { width: 220px; height: 220px; }

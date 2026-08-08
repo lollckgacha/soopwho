@@ -21,6 +21,7 @@
         <button id="startGameBtn" class="home-btn primary">🎮 게임 시작</button>
         <button id="tutorialBtn" class="home-btn">📘 튜토리얼</button>
         <button id="statsBtn" class="home-btn">📊 통계</button>
+        <button id="dexHomeBtn" class="home-btn">📖 버튜버 도감</button>
         <button id="settingsBtn" class="home-btn">⚙️ 설정</button>
 
         <div id="settingsPopover" class="settings-popover hidden">
@@ -173,6 +174,7 @@
 
         <div class="toolbar">
           <span id="guessCount">시도: 0회</span>
+          <button id="dexGameBtn" class="ghost-btn" title="버튜버 도감">📖 도감</button>
           <button id="shuffleBtn" class="ghost-btn" title="다른 스트리머로 새 게임 시작">🔀 다른 문제</button>
           <button id="giveupBtn" class="ghost-btn">🏳️ 정답 보기</button>
         </div>
@@ -192,6 +194,51 @@
         </div>
       </main>
     </section>
+
+    <!-- ================= 버튜버 도감 (오버레이 — 어느 화면에서 열어도 그 화면 상태를 그대로 유지) ================= -->
+    <div id="dexModal" class="dex-modal hidden">
+      <div class="dex-panel">
+        <div class="game-topbar">
+          <button id="dexCloseBtn" class="icon-btn" title="닫기">✕</button>
+          <h2 class="screen-title">버튜버 도감</h2>
+        </div>
+
+        <div class="dex-controls">
+          <input id="dexSearchInput" type="text" class="dex-search-input" placeholder="이름 검색" autocomplete="off" />
+          <div class="dex-filters">
+            <select id="dexGenderFilter" class="dex-filter-select">
+              <option value="">성별 전체</option>
+              <option value="남">남</option>
+              <option value="여">여</option>
+            </select>
+            <select id="dexCrewFilter" class="dex-filter-select">
+              <option value="">소속 크루 전체</option>
+            </select>
+            <div class="dex-range-inputs">
+              <input id="dexFanMinInput" type="number" min="0" class="range-number-input dex-fan-input" placeholder="애청자 최소" />
+              <span class="range-tilde">~</span>
+              <input id="dexFanMaxInput" type="number" min="0" class="range-number-input dex-fan-input" placeholder="애청자 최대" />
+            </div>
+            <button id="dexFilterResetBtn" class="ghost-btn">필터 초기화</button>
+          </div>
+        </div>
+
+        <div class="dex-list-wrap">
+          <div class="dex-list" id="dexList">
+            <div class="board-row board-head dex-head">
+              <div class="cell cell-name">이름</div>
+              <div class="cell">성별</div>
+              <div class="cell">소속 크루</div>
+              <div class="cell">방송 시작</div>
+              <div class="cell">나이</div>
+              <div class="cell">애청자 수</div>
+            </div>
+            <div id="dexListBody"></div>
+            <div id="dexEmpty" class="status hidden">조건에 맞는 버튜버가 없어요.</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
