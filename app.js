@@ -37,7 +37,7 @@ let isTutorial = false;
 let tutorialStepIndex = 0;
 let currentRangeMin = 0; // 출제 범위 하한(포함), 0 = 제한 없음
 let currentRangeMax = Infinity; // 출제 범위 상한(미포함), Infinity = 제한 없음
-let confirmed = { gender: false, crew: false, startYear: false, age: false, fanCount: false }; // 정답 사진 옆 5칸 확정 여부
+let confirmed = { name: false, gender: false, crew: false, startYear: false, age: false, fanCount: false }; // 정답 사진 옆 5칸 확정 여부
 let volume = 50; // 사운드/배경음악 기본 볼륨 (bindEvents() -> initSound() 에서 곧바로 참조하므로 맨 위에서 선언해야 한다)
 let audioCtx = null;
 let dexSortKey = "name"; // "name" | "startYear" | "age" | "fanCount" — 도감 정렬 기준
@@ -99,6 +99,7 @@ const resetStatsBtn = $("#resetStatsBtn");
 // 게임 화면
 const loadingEl = $("#loading");
 const gameEl = $("#game");
+const confirmedNameEl = $("#confirmedName");
 const confirmedGenderEl = $("#confirmedGender");
 const confirmedCrewEl = $("#confirmedCrew");
 const confirmedStartYearEl = $("#confirmedStartYear");
@@ -405,7 +406,7 @@ function finalizeRangeInputs() {
 function resetGameState() {
   target = null;
   guessedNames = [];
-  confirmed = { gender: false, crew: false, startYear: false, age: false, fanCount: false };
+  confirmed = { name: false, gender: false, crew: false, startYear: false, age: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
   resetReveal();
@@ -480,7 +481,7 @@ function pickRandomTarget(excludeName) {
 function startNewGame(newTarget) {
   target = newTarget || pickRandomTarget();
   guessedNames = [];
-  confirmed = { gender: false, crew: false, startYear: false, age: false, fanCount: false };
+  confirmed = { name: false, gender: false, crew: false, startYear: false, age: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
   resetReveal();
@@ -491,9 +492,10 @@ function startNewGame(newTarget) {
 }
 
 // ---------------------------------------------------------
-// 정답 사진과 입력창 사이의 5칸 — 성별/크루/방송 시작 연도/나이/애청자수 중 확정된 것만 채운다
+// 정답 사진과 입력창 사이의 6칸 — 이름 초성/성별/크루/방송 시작 연도/나이/애청자수 중 확정된 것만 채운다
 // ---------------------------------------------------------
 function updateConfirmedFromCmp(cmp) {
+  if (cmp.nameCmp.match) confirmed.name = true;
   if (cmp.genderCmp.match) confirmed.gender = true;
   if (cmp.crewCmp.match) confirmed.crew = true;
   if (cmp.startYearCmp.match) confirmed.startYear = true;
@@ -503,6 +505,7 @@ function updateConfirmedFromCmp(cmp) {
 
 // 정답이 처음부터 성별/방송 시작 연도/나이가 비공개거나 크루 무소속이면, 어차피 맞는 걸 찾을 수 없으니
 // 첫 시도 직후 자동으로 그 사실을 확정 칸에 채워준다 (given hint 칩과 같은 판단 기준).
+// 이름(초성)은 모든 스트리머가 항상 갖고 있어서 비공개일 수 없으므로 자동 공개 대상이 아니다.
 function autoRevealUnknownGivens() {
   if (getCrewNames(target).length === 0) confirmed.crew = true;
   if (!target.gender) confirmed.gender = true;
@@ -511,6 +514,10 @@ function autoRevealUnknownGivens() {
 }
 
 function renderConfirmedHints() {
+  renderConfirmedSlot(confirmedNameEl, confirmed.name, () => ({
+    text: getChosung(target.name),
+  }));
+
   renderConfirmedSlot(confirmedGenderEl, confirmed.gender, () => ({
     text: genderSymbol(target.gender) || "비공개",
   }));
@@ -856,6 +863,47 @@ function updateGuessCount() {
 // ---------------------------------------------------------
 // 힌트 비교 로직
 // ---------------------------------------------------------
+
+// 한글 초성 19개, 유니코드 완성형 음절의 초성 인덱스와 같은 순서(=가나다순 초성 순서).
+const CHOSUNG_LIST = [
+  "ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ",
+  "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ",
+];
+
+// 이름 첫 글자가 완성형 한글 음절이면 초성 인덱스(0~18)를, 아니면(영문/숫자 등) null을 반환한다.
+function getChosungIndex(name) {
+  if (!name) return null;
+  const code = name.codePointAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return null;
+  return Math.floor((code - 0xac00) / (21 * 28));
+}
+
+function getChosung(name) {
+  const idx = getChosungIndex(name);
+  return idx == null ? (name ? name[0] : "") : CHOSUNG_LIST[idx];
+}
+
+// 이름 힌트: 추측한 스트리머 이름의 초성을 보여주고, 정답의 초성이 가나다순으로 더 앞인지/뒤인지를
+// 화살표로 알려준다. 예: 정답 "우왁굳"(ㅇ)인데 "천양"(ㅊ)을 추측하면 ㅊ을 보여주고, ㅇ이 ㅊ보다
+// 앞이므로 왼쪽 화살표(◀)로 "정답은 더 앞선 초성으로 시작한다"는 걸 알려준다.
+// 초성이 같으면(ㅊ==ㅊ처럼) 일치로 보고 파란색으로 표시한다.
+function compareName(guessName, targetName) {
+  const guessIdx = getChosungIndex(guessName);
+  const targetIdx = getChosungIndex(targetName);
+  const char = getChosung(guessName);
+
+  if (guessIdx == null || targetIdx == null) {
+    // 한글 완성형 음절이 아닌 예외적인 이름(영문/숫자 시작 등)은 초성 비교가 안 되니
+    // 전체 이름 문자열 비교로 대체한다.
+    const cmp = guessName.localeCompare(targetName, "ko");
+    if (cmp === 0) return { match: true, direction: null, char };
+    return { match: false, direction: cmp < 0 ? "right" : "left", char };
+  }
+
+  if (guessIdx === targetIdx) return { match: true, direction: null, char };
+  return { match: false, direction: guessIdx < targetIdx ? "right" : "left", char };
+}
+
 function compareGender(guess, ans) {
   if (!guess || !ans) return { match: false, unknown: true };
   return { match: guess === ans, unknown: false };
@@ -937,6 +985,7 @@ function formatFanCount(n) {
 // ---------------------------------------------------------
 function computeHintComparisons(streamer) {
   return {
+    nameCmp: compareName(streamer.name, target.name),
     genderCmp: compareGender(streamer.gender, target.gender),
     crewCmp: compareCrew(streamer, target),
     startYearCmp: compareNumber(streamer.startYear, target.startYear),
@@ -952,6 +1001,7 @@ function renderGuessRow(streamer) {
   const cmp = computeHintComparisons(streamer);
 
   row.appendChild(nameCell(streamer.name));
+  row.appendChild(chosungBadge(cmp.nameCmp));
   row.appendChild(genderBadge(streamer.gender, cmp.genderCmp));
   row.appendChild(crewBadge(cmp.crewCmp.crewName, resolveCrewImage(streamer, cmp.crewCmp.crewName), cmp.crewCmp));
   row.appendChild(numberBadge(streamer.startYear, cmp.startYearCmp, (v) => `${v}년`));
@@ -973,6 +1023,29 @@ function genderSymbol(value) {
   if (value === "남") return "♂";
   if (value === "여") return "♀";
   return null;
+}
+
+// 이름 힌트 배지: 추측한 이름의 초성을 보여주고, 일치하지 않으면 정답 초성이 가나다순으로
+// 더 앞(◀)인지 뒤(▶)인지 화살표로 알려준다.
+function chosungBadge(cmp) {
+  const div = document.createElement("div");
+  div.className = "cell";
+  const badge = document.createElement("div");
+  badge.className = "badge" + (cmp.match ? " match" : "");
+
+  const charSpan = document.createElement("span");
+  charSpan.textContent = cmp.char;
+  badge.appendChild(charSpan);
+
+  if (cmp.direction) {
+    const arrow = document.createElement("span");
+    arrow.className = "arrow " + cmp.direction;
+    arrow.textContent = cmp.direction === "right" ? "▶" : "◀";
+    badge.appendChild(arrow);
+  }
+
+  div.appendChild(badge);
+  return div;
 }
 
 function genderBadge(value, cmp) {
@@ -1122,7 +1195,7 @@ const TUTORIAL_STEPS = [
     highlight: () => guessBoxEl,
   },
   {
-    text: "방금 나온 원(배지)들이 힌트예요! 파란 배경은 정답과 일치, 검정 배경은 불일치예요. 방송 시작·나이·애청자수 옆의 화살표(▲/▼)는 정답이 더 높은지 낮은지 알려줘요.",
+    text: "방금 나온 원(배지)들이 힌트예요! 파란 배경은 정답과 일치, 검정 배경은 불일치예요. 방송 시작·나이·애청자수 옆의 화살표(▲/▼)는 정답이 더 높은지 낮은지, 이름 초성 옆의 화살표(◀/▶)는 정답 이름의 초성이 가나다순으로 더 앞인지 뒤인지 알려줘요.",
     highlight: () => boardBodyEl,
   },
   {
