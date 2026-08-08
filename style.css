@@ -632,7 +632,7 @@ html, body {
   text-align: center;
 }
 
-/* 정답 사진과 입력창 사이: 성별/크루/나이/애청자수 4칸 — 맞춘 항목만 채워지고 나머지는 "?" */
+/* 정답 사진과 입력창 사이: 성별/크루/방송시작/나이/애청자수 5칸 — 맞춘 항목만 채워지고 나머지는 "?" */
 .confirmed-hints {
   display: flex;
   gap: 10px;
@@ -805,12 +805,12 @@ html, body {
 }
 
 .board {
-  min-width: 560px;
+  min-width: 660px;
 }
 
 .board-row {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr 1fr;
   gap: 10px;
   align-items: center;
   margin-bottom: 10px;
@@ -1010,7 +1010,7 @@ html, body {
 @media (max-width: 600px) {
   .app { padding: 16px 12px 60px; }
 
-  .board { min-width: 460px; }
+  .board { min-width: 540px; }
   .badge { width: 54px; height: 54px; font-size: 12px; }
   .badge-crew img { width: 38px; height: 38px; }
   .reveal-photo { width: 220px; height: 220px; }
