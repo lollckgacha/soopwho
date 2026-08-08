@@ -112,7 +112,6 @@ const submitBtn = $("#submitBtn");
 const suggestionsEl = $("#suggestions");
 const boardBodyEl = $("#boardBody");
 const guessCountEl = $("#guessCount");
-const shuffleBtn = $("#shuffleBtn");
 const giveupBtn = $("#giveupBtn");
 const resultPanelEl = $("#resultPanel");
 const resultTextEl = $("#resultText");
@@ -308,16 +307,22 @@ function renderDexRow(streamer) {
   row.appendChild(dexTextCell(crewNames.length ? crewNames[0] : "무소속"));
 
   row.appendChild(dexTextCell(streamer.startYear != null ? `${streamer.startYear}년` : "비공개"));
-  row.appendChild(dexTextCell(streamer.age != null ? `${streamer.age}세` : "비공개"));
+  row.appendChild(dexTextCell(
+    streamer.age != null ? `${streamer.age}세` : "비공개",
+    streamer.age != null ? `${estimateBirthYear(streamer.age)}년` : null
+  ));
   row.appendChild(dexTextCell(formatFanCount(streamer.fanCount)));
 
   return row;
 }
 
-function dexTextCell(text) {
+function dexTextCell(text, tooltip) {
   const div = document.createElement("div");
   div.className = "cell";
   div.textContent = text;
+  if (tooltip) {
+    div.setAttribute("data-tooltip", tooltip);
+  }
   return div;
 }
 
@@ -539,6 +544,7 @@ function renderConfirmedHints() {
 
   renderConfirmedSlot(confirmedAgeEl, confirmed.age, () => ({
     text: target.age != null ? `${target.age}세` : "비공개",
+    tooltip: target.age != null ? `${estimateBirthYear(target.age)}년` : null,
   }));
 
   renderConfirmedSlot(confirmedFanEl, confirmed.fanCount, () => ({
@@ -574,6 +580,9 @@ function renderConfirmedSlot(el, isConfirmed, contentFn) {
     return;
   }
 
+  if (data.tooltip) {
+    el.setAttribute("data-tooltip", data.tooltip);
+  }
   el.innerHTML = `<span class="confirmed-text">${escapeHtml(data.text)}</span>`;
 }
 
@@ -730,7 +739,6 @@ function bindEvents() {
     }
   });
 
-  shuffleBtn.addEventListener("click", () => startNewGame(pickRandomTarget(target ? target.name : null)));
   giveupBtn.addEventListener("click", () => {
     if (!target) return;
     if (!guessedNames.includes(target.name)) {
@@ -970,6 +978,13 @@ function compareNumber(guessVal, ansVal) {
   return { match: false, unknown: false, direction: guessVal < ansVal ? "up" : "down" };
 }
 
+// 나이 배지에 마우스를 올리면 뜨는 출생연도 툴팁 — 한국(세는)나이 기준으로 역산한다.
+// 세는나이는 태어난 해를 1살로 치고 해가 바뀔 때마다 한 살씩 먹으므로, 올해 연도에서
+// (나이 - 1)을 빼면 출생연도가 나온다. 예: 2026년에 25살이면 2026-25+1=2002년생.
+function estimateBirthYear(age) {
+  return new Date().getFullYear() - age + 1;
+}
+
 // 소수 첫째자리까지 내림해서 표시한다 (반올림하면 실제보다 부풀려 보일 수 있어서 항상 내림).
 // 예: 18000 -> "1.8만", 7800 -> "7.8천". 딱 떨어지는 값(20000 등)은 ".0"을 안 붙이고 "2만"으로 표시.
 function formatFanCount(n) {
@@ -1010,7 +1025,7 @@ function renderGuessRow(streamer) {
   row.appendChild(genderBadge(streamer.gender, cmp.genderCmp));
   row.appendChild(crewBadge(cmp.crewCmp.crewName, resolveCrewImage(streamer, cmp.crewCmp.crewName), cmp.crewCmp));
   row.appendChild(numberBadge(streamer.startYear, cmp.startYearCmp, (v) => `${v}년`));
-  row.appendChild(numberBadge(streamer.age, cmp.ageCmp, (v) => `${v}세`));
+  row.appendChild(numberBadge(streamer.age, cmp.ageCmp, (v) => `${v}세`, (v) => `${estimateBirthYear(v)}년`));
   row.appendChild(numberBadge(streamer.fanCount, cmp.fanCmp, formatFanCount));
 
   boardBodyEl.prepend(row);
@@ -1105,7 +1120,9 @@ function crewBadge(crewName, crewImage, cmp) {
   return div;
 }
 
-function numberBadge(value, cmp, formatter) {
+// tooltipFn(value)가 주어지면(현재는 나이 배지에만 사용) 크루 배지처럼 마우스를 올렸을 때
+// 툴팁으로 보여준다 — 값이 실제로 표시될 때만(비공개가 아닐 때만) 붙인다.
+function numberBadge(value, cmp, formatter, tooltipFn) {
   const div = document.createElement("div");
   div.className = "cell";
   const badge = document.createElement("div");
@@ -1123,6 +1140,9 @@ function numberBadge(value, cmp, formatter) {
       arrow.className = "arrow " + cmp.direction;
       arrow.textContent = cmp.direction === "up" ? "▲" : "▼";
       badge.appendChild(arrow);
+    }
+    if (tooltipFn && value != null) {
+      badge.setAttribute("data-tooltip", tooltipFn(value));
     }
   }
 

@@ -324,11 +324,19 @@ html, body {
   margin-bottom: 18px;
 }
 
+/* 각 칸을 명시적으로 지정해둔다 — 튜토리얼 제목(#tutorialTitle)이 display:none일 때
+   그리드 자동배치가 그 칸을 건너뛰어 사운드 버튼이 가운데 칸으로 밀려오는 문제가 있었다. */
 .game-topbar > .icon-btn:first-child {
+  grid-column: 1;
   justify-self: start;
 }
 
+.game-topbar > .screen-title {
+  grid-column: 2;
+}
+
 .game-topbar > .sound-control {
+  grid-column: 3;
   justify-self: end;
 }
 
@@ -635,7 +643,7 @@ html, body {
 }
 
 .reveal-name {
-  font-size: 20px;
+  font-size: 26px;
   font-weight: 800;
   letter-spacing: 0.01em;
   text-align: center;
@@ -692,6 +700,11 @@ html, body {
   color: #ffffff;
   text-align: center;
   padding: 0 4px;
+}
+
+/* 성별 칸(♂/♀ 기호 또는 "비공개")은 글자 하나뿐이라 다른 칸보다 크게 키워도 된다 */
+#confirmedGender .confirmed-text {
+  font-size: 22px;
 }
 
 .confirmed-slot img {
@@ -1078,8 +1091,9 @@ html, body {
   white-space: nowrap;
 }
 
-/* tooltip for crew badge */
+/* tooltip for crew badge (and now age badges/cells — 나이 배지에 마우스를 올리면 출생연도가 뜬다) */
 [data-tooltip] {
+  position: relative;
   cursor: help;
 }
 
@@ -1216,6 +1230,7 @@ html, body {
   .confirmed-slot { width: 46px; height: 46px; border-radius: 12px; }
   .confirmed-slot .confirmed-mark { font-size: 18px; }
   .confirmed-slot .confirmed-text { font-size: 10px; }
+  #confirmedGender .confirmed-text { font-size: 18px; }
   .confirmed-slot img { width: 30px; height: 30px; }
   .confirmed-label { font-size: 9px; }
 
@@ -1233,6 +1248,7 @@ html, body {
   .confirmed-slot { width: 38px; height: 38px; }
   .confirmed-slot .confirmed-mark { font-size: 15px; }
   .confirmed-slot .confirmed-text { font-size: 9px; }
+  #confirmedGender .confirmed-text { font-size: 15px; }
   .confirmed-slot img { width: 24px; height: 24px; }
   .confirmed-label { font-size: 8px; }
 }
