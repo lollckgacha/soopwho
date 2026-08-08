@@ -309,7 +309,7 @@ function renderDexRow(streamer) {
   row.appendChild(dexTextCell(streamer.startYear != null ? `${streamer.startYear}년` : "비공개"));
   row.appendChild(dexTextCell(
     streamer.age != null ? `${streamer.age}세` : "비공개",
-    streamer.age != null ? `${estimateBirthYear(streamer.age)}년` : null
+    ageHoverTooltip(streamer)
   ));
   row.appendChild(dexTextCell(formatFanCount(streamer.fanCount)));
 
@@ -544,7 +544,7 @@ function renderConfirmedHints() {
 
   renderConfirmedSlot(confirmedAgeEl, confirmed.age, () => ({
     text: target.age != null ? `${target.age}세` : "비공개",
-    tooltip: target.age != null ? `${estimateBirthYear(target.age)}년` : null,
+    tooltip: ageHoverTooltip(target),
   }));
 
   renderConfirmedSlot(confirmedFanEl, confirmed.fanCount, () => ({
@@ -978,11 +978,12 @@ function compareNumber(guessVal, ansVal) {
   return { match: false, unknown: false, direction: guessVal < ansVal ? "up" : "down" };
 }
 
-// 나이 배지에 마우스를 올리면 뜨는 출생연도 툴팁 — 한국(세는)나이 기준으로 역산한다.
-// 세는나이는 태어난 해를 1살로 치고 해가 바뀔 때마다 한 살씩 먹으므로, 올해 연도에서
-// (나이 - 1)을 빼면 출생연도가 나온다. 예: 2026년에 25살이면 2026-25+1=2002년생.
-function estimateBirthYear(age) {
-  return new Date().getFullYear() - age + 1;
+// 나이 배지에 마우스를 올리면 뜨는 툴팁: 실제 나이인 스트리머(시트에 출생연도까지 채워져 있음)는
+// 그 출생연도를 그대로 보여주고, 컨셉(RP) 나이인 스트리머(나이만 있고 출생연도는 비어있음)는
+// "RP"라고 표시해 실제 나이가 아님을 알려준다. 나이 자체가 없으면 툴팁을 아예 달지 않는다.
+function ageHoverTooltip(streamer) {
+  if (streamer.age == null) return null;
+  return streamer.birthYear != null ? `${streamer.birthYear}년` : "RP";
 }
 
 // 소수 첫째자리까지 내림해서 표시한다 (반올림하면 실제보다 부풀려 보일 수 있어서 항상 내림).
@@ -1025,7 +1026,7 @@ function renderGuessRow(streamer) {
   row.appendChild(genderBadge(streamer.gender, cmp.genderCmp));
   row.appendChild(crewBadge(cmp.crewCmp.crewName, resolveCrewImage(streamer, cmp.crewCmp.crewName), cmp.crewCmp));
   row.appendChild(numberBadge(streamer.startYear, cmp.startYearCmp, (v) => `${v}년`));
-  row.appendChild(numberBadge(streamer.age, cmp.ageCmp, (v) => `${v}세`, (v) => `${estimateBirthYear(v)}년`));
+  row.appendChild(numberBadge(streamer.age, cmp.ageCmp, (v) => `${v}세`, () => ageHoverTooltip(streamer)));
   row.appendChild(numberBadge(streamer.fanCount, cmp.fanCmp, formatFanCount));
 
   boardBodyEl.prepend(row);
