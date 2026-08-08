@@ -639,6 +639,19 @@ html, body {
   justify-content: center;
 }
 
+.confirmed-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.confirmed-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
 .confirmed-slot {
   width: 64px;
   height: 64px;
@@ -1044,6 +1057,7 @@ html, body {
   .confirmed-slot .confirmed-mark { font-size: 20px; }
   .confirmed-slot .confirmed-text { font-size: 11px; }
   .confirmed-slot img { width: 36px; height: 36px; }
+  .confirmed-label { font-size: 10px; }
 
   .range-menu { padding: 18px 14px; max-width: 100%; }
   .range-preset-btn { font-size: 12px; padding: 6px 10px; }
@@ -1057,4 +1071,5 @@ html, body {
   .result-panel button, .station-link-btn { width: 100%; justify-content: center; }
   .confirmed-hints { gap: 6px; }
   .confirmed-slot { width: 46px; height: 46px; }
+  .confirmed-label { font-size: 9px; }
 }
