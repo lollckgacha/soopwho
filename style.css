@@ -1050,6 +1050,12 @@ html, body {
   font-weight: 600;
 }
 
+/* "비공개"(3글자)가 아니라 "?" 같은 한 글자 기호를 보여줄 때 — 다른 "?" 표시들과 비슷하게 크게 */
+.badge.unknown-symbol {
+  font-size: 28px;
+  font-weight: 800;
+}
+
 .badge .arrow {
   font-size: 12px;
   line-height: 1;

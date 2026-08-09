@@ -306,7 +306,7 @@ function renderDexRow(streamer) {
   const crewNames = getCrewNames(streamer);
   row.appendChild(dexTextCell(crewNames.length ? crewNames[0] : "무소속"));
 
-  row.appendChild(dexTextCell(streamer.startYear != null ? `${streamer.startYear}년` : "비공개"));
+  row.appendChild(dexTextCell(streamer.startYear != null ? `${streamer.startYear}년` : "?"));
   row.appendChild(dexTextCell(
     streamer.age != null ? `${streamer.age}세` : "비공개",
     ageHoverTooltip(streamer)
@@ -454,20 +454,14 @@ function enterRealGame() {
 // 게임 상태
 // ---------------------------------------------------------
 
-// 방송 시작 연도가 비공개(null)인 스트리머는 정답으로 출제하지 않는다 — 성별/나이는 비공개여도
-// 상관없지만, 방송 시작만큼은 항상 채워져 있는 스트리머만 등장하게 한다.
-function getStartYearFilledPool() {
-  return streamers.filter((s) => s.startYear != null);
-}
-
 // 현재 선택된 출제 범위(currentRangeMin~currentRangeMax)에 맞는 스트리머만 걸러낸다.
 // 하한은 포함, 상한은 미포함 — 예: [2000, Infinity) 면 "2천 이상 전부", [0, 2000) 면 "2천 미만 전부"
 // (2천~5천처럼 좁은 구간으로 잘못 해석되지 않도록 항상 이 규칙을 지킨다).
 // 애청자 수가 비공개(null)인 스트리머는 범위를 확인할 수 없으므로, 전체 범위가 아닐 때는 제외한다.
+// (방송 시작 연도는 비공개여도 출제 대상에서 제외하지 않는다 — 힌트에서 "?"로 표시될 뿐 정답으로는 나올 수 있다.)
 function getModeFilteredPool() {
-  const base = getStartYearFilledPool();
-  if (currentRangeMin === 0 && currentRangeMax === Infinity) return base;
-  return base.filter((s) => {
+  if (currentRangeMin === 0 && currentRangeMax === Infinity) return streamers;
+  return streamers.filter((s) => {
     if (s.fanCount == null) return false;
     if (s.fanCount < currentRangeMin) return false;
     if (currentRangeMax !== Infinity && s.fanCount >= currentRangeMax) return false;
@@ -477,10 +471,7 @@ function getModeFilteredPool() {
 
 function pickRandomTarget(excludeName) {
   let pool = getModeFilteredPool();
-  // 해당 범위에 아무도 없으면 방송 시작이 채워진 전체에서 뽑고, 그마저도 없으면(있을 수 없지만
-  // 안전장치로) 전체 스트리머에서 뽑는다.
-  if (pool.length === 0) pool = getStartYearFilledPool();
-  if (pool.length === 0) pool = streamers;
+  if (pool.length === 0) pool = streamers; // 해당 범위에 아무도 없으면 안전하게 전체에서 뽑는다
   if (excludeName) {
     const filtered = pool.filter((s) => s.name !== excludeName);
     if (filtered.length > 0) pool = filtered;
@@ -539,7 +530,7 @@ function renderConfirmedHints() {
   });
 
   renderConfirmedSlot(confirmedStartYearEl, confirmed.startYear, () => ({
-    text: target.startYear != null ? `${target.startYear}년` : "비공개",
+    text: target.startYear != null ? `${target.startYear}년` : "?",
   }));
 
   renderConfirmedSlot(confirmedAgeEl, confirmed.age, () => ({
@@ -1025,7 +1016,7 @@ function renderGuessRow(streamer) {
   row.appendChild(chosungBadge(cmp.nameCmp));
   row.appendChild(genderBadge(streamer.gender, cmp.genderCmp));
   row.appendChild(crewBadge(cmp.crewCmp.crewName, resolveCrewImage(streamer, cmp.crewCmp.crewName), cmp.crewCmp));
-  row.appendChild(numberBadge(streamer.startYear, cmp.startYearCmp, (v) => `${v}년`));
+  row.appendChild(numberBadge(streamer.startYear, cmp.startYearCmp, (v) => `${v}년`, null, "?"));
   row.appendChild(numberBadge(streamer.age, cmp.ageCmp, (v) => `${v}세`, () => ageHoverTooltip(streamer)));
   row.appendChild(numberBadge(streamer.fanCount, cmp.fanCmp, formatFanCount));
 
@@ -1123,15 +1114,21 @@ function crewBadge(crewName, crewImage, cmp) {
 
 // tooltipFn(value)가 주어지면(현재는 나이 배지에만 사용) 크루 배지처럼 마우스를 올렸을 때
 // 툴팁으로 보여준다 — 값이 실제로 표시될 때만(비공개가 아닐 때만) 붙인다.
-function numberBadge(value, cmp, formatter, tooltipFn) {
+// unknownText: 값을 모를 때 보여줄 문구 (기본 "비공개" — 나이/애청자수처럼 진짜 비공개인 경우용).
+// 방송 시작처럼 "비공개"가 아니라 그냥 못 찾은 것뿐인 항목은 "?"를 넘겨서 문구를 바꿀 수 있다.
+function numberBadge(value, cmp, formatter, tooltipFn, unknownText) {
   const div = document.createElement("div");
   div.className = "cell";
   const badge = document.createElement("div");
-  // 둘 다 비공개(bothUnknown)면 "비공개"라는 텍스트는 그대로지만 일치로 보고 파란색을 켠다.
+  // 둘 다 비공개(bothUnknown)면 문구는 그대로지만 일치로 보고 파란색을 켠다.
   badge.className = "badge" + (cmp.bothUnknown ? " match" : cmp.unknown ? " unknown" : cmp.match ? " match" : "");
+  // "?"처럼 한 글자짜리 문구는 "비공개"(3글자)용 작은 글씨 대신 물음표 기호 크기로 키운다.
+  if (cmp.unknown && unknownText && unknownText !== "비공개") {
+    badge.classList.add("unknown-symbol");
+  }
 
   if (cmp.unknown) {
-    badge.textContent = "비공개";
+    badge.textContent = unknownText || "비공개";
   } else {
     const valueSpan = document.createElement("span");
     valueSpan.textContent = formatter(value);
