@@ -145,32 +145,38 @@ html, body {
   padding: 24px 22px;
 }
 
-.range-presets {
+/* #modePresets/#modeCustom은 .range-menu 안에서 서로 번갈아 보이는 두 하위 화면이라,
+   .range-menu 자체의 세로 flex+gap을 그대로 물려받도록 각각에도 똑같이 적용한다. */
+#modePresets,
+#modeCustom {
   display: flex;
-  gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.range-preset-btn {
-  background: var(--panel-2);
+/* 출제 범위 버튼 목록(전체/2천 미만/.../직접 범위 설정) — 세로로 나열된, 홈 화면 버튼과 같은
+   느낌의 버튼들. 프리셋 버튼은 누르는 즉시 그 범위로 게임이 시작되고, "직접 범위 설정"만
+   예외적으로 슬라이더 화면으로 넘어간다(그래서 손잡이 위치에 맞춘 "active" 강조는 더 이상 필요 없다). */
+.range-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.range-mode-btn {
+  padding: 14px 16px;
+  border-radius: 12px;
   border: 1px solid var(--border);
+  background: var(--panel-2);
   color: var(--text);
-  padding: 7px 13px;
-  border-radius: 999px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
-.range-preset-btn:hover { border-color: var(--sky); }
-
-.range-preset-btn.active {
-  background: var(--sky);
-  border-color: var(--sky-2);
-  color: #04202b;
-}
+.range-mode-btn:hover { border-color: var(--sky); background: var(--panel); }
+.range-mode-btn:active { transform: scale(0.98); }
 
 .range-slider-wrap {
   position: relative;
@@ -1241,7 +1247,7 @@ html, body {
   .confirmed-label { font-size: 9px; }
 
   .range-menu { padding: 18px 14px; max-width: 100%; }
-  .range-preset-btn { font-size: 12px; padding: 6px 10px; }
+  .range-mode-btn { font-size: 14px; padding: 12px 14px; }
 }
 
 /* 아주 좁은 화면(작은 폰) 추가 보정 */

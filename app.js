@@ -38,7 +38,7 @@ let tutorialStepIndex = 0;
 let currentRangeMin = 0; // 출제 범위 하한(포함), 0 = 제한 없음
 let currentRangeMax = Infinity; // 출제 범위 상한(미포함), Infinity = 제한 없음
 let confirmed = { name: false, gender: false, crew: false, startYear: false, age: false, fanCount: false }; // 정답 사진 옆 5칸 확정 여부
-let volume = 50; // 사운드/배경음악 기본 볼륨 (bindEvents() -> initSound() 에서 곧바로 참조하므로 맨 위에서 선언해야 한다)
+let volume = 25; // 사운드/배경음악 기본 볼륨 (bindEvents() -> initSound() 에서 곧바로 참조하므로 맨 위에서 선언해야 한다)
 let audioCtx = null;
 let dexSortKey = "name"; // "name" | "startYear" | "age" | "fanCount" — 도감 정렬 기준
 let dexSortDir = "asc"; // "asc" | "desc"
@@ -62,10 +62,15 @@ const homeVolumeSliderEl = $("#homeVolumeSlider");
 const homeVolumeIconEl = $("#homeVolumeIcon");
 const settingsResetStatsBtn = $("#settingsResetStatsBtn");
 
-// 출제 범위 선택 메뉴 (구간 슬라이더)
+// 출제 범위 선택 메뉴 — 기본은 버튼 목록(전체/2천 미만/.../직접 범위 설정), "⚙️ 직접 범위 설정"을
+// 누르면 그 안에서 구간 슬라이더 화면으로 전환된다.
 const modeMenuEl = $("#modeMenu");
+const modePresetsEl = $("#modePresets");
+const modeCustomEl = $("#modeCustom");
 const modeBackBtn = $("#modeBackBtn");
-const rangePresetBtns = Array.from(document.querySelectorAll(".range-preset-btn"));
+const customRangeBtn = $("#customRangeBtn");
+const customBackBtn = $("#customBackBtn");
+const rangeModeBtns = Array.from(document.querySelectorAll(".range-mode-btn[data-min]")); // 직접 범위 설정 버튼은 data-min이 없어 제외됨
 const rangeMinSliderEl = $("#rangeMinSlider");
 const rangeMaxSliderEl = $("#rangeMaxSlider");
 const rangeFillEl = $("#rangeFill");
@@ -190,10 +195,23 @@ function showHomeMenu() {
   homeMenuEl.classList.remove("hidden");
 }
 
+// 출제 범위 화면은 항상 버튼 목록(모드 프리셋)부터 보여준다 — "직접 범위 설정"으로 들어갔다가
+// 다시 이 화면으로 돌아와도 슬라이더 화면이 아니라 목록이 먼저 보이는 게 자연스럽다.
+function showModePresets() {
+  modeCustomEl.classList.add("hidden");
+  modePresetsEl.classList.remove("hidden");
+}
+
+function showModeCustom() {
+  modePresetsEl.classList.add("hidden");
+  modeCustomEl.classList.remove("hidden");
+  setRangeFromIndexes();
+}
+
 function showModeMenu() {
   homeMenuEl.classList.add("hidden");
   modeMenuEl.classList.remove("hidden");
-  setRangeFromIndexes();
+  showModePresets();
 }
 
 // ---------------------------------------------------------
@@ -375,11 +393,6 @@ function updateSliderVisual() {
   const pct = (i) => (i / RANGE_LAST_INDEX) * 100;
   rangeFillEl.style.left = pct(rangeMinIndex) + "%";
   rangeFillEl.style.width = Math.max(0, pct(rangeMaxIndex) - pct(rangeMinIndex)) + "%";
-
-  rangePresetBtns.forEach((btn) => {
-    const isActive = Number(btn.dataset.min) === rangeMinIndex && Number(btn.dataset.max) === rangeMaxIndex;
-    btn.classList.toggle("active", isActive);
-  });
 }
 
 // 입력칸 두 개의 표시 텍스트를 현재 값으로 맞춘다
@@ -597,7 +610,19 @@ function bindEvents() {
   startGameBtn.addEventListener("click", showModeMenu);
   modeBackBtn.addEventListener("click", showHomeMenu);
 
-  // 출제 범위 슬라이더
+  // 출제 범위 화면: 전체/2천 미만/2천 이상/5천 이상/1만 이상 버튼은 누르는 즉시 그 범위로 게임을 시작한다.
+  rangeModeBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentRangeMin = RANGE_STEPS[Number(btn.dataset.min)].value;
+      currentRangeMax = RANGE_STEPS[Number(btn.dataset.max)].value;
+      enterRealGame();
+    });
+  });
+  // "⚙️ 직접 범위 설정"만 예외적으로 슬라이더+입력칸 화면으로 넘어간다 (여기서 시작 버튼을 눌러야 시작됨)
+  customRangeBtn.addEventListener("click", showModeCustom);
+  customBackBtn.addEventListener("click", showModePresets);
+
+  // 출제 범위 슬라이더 (직접 범위 설정 화면)
   rangeMinSliderEl.addEventListener("input", () => {
     rangeMinIndex = Math.min(Number(rangeMinSliderEl.value), rangeMaxIndex);
     setRangeFromIndexes();
@@ -605,13 +630,6 @@ function bindEvents() {
   rangeMaxSliderEl.addEventListener("input", () => {
     rangeMaxIndex = Math.max(Number(rangeMaxSliderEl.value), rangeMinIndex);
     setRangeFromIndexes();
-  });
-  rangePresetBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      rangeMinIndex = Number(btn.dataset.min);
-      rangeMaxIndex = Number(btn.dataset.max);
-      setRangeFromIndexes();
-    });
   });
 
   // 입력칸에 직접 숫자 입력 (타이핑하는 동안은 값만 갱신하고 손잡이만 따라가며,
@@ -1227,12 +1245,19 @@ const TUTORIAL_STEPS = [
   },
 ];
 
+// 튜토리얼 정답은 매번 고정된 한 명이 아니라, 성별/소속크루/방송 시작/나이/애청자 수가 전부 채워져
+// 비공개 정보가 하나도 없는 스트리머 중에서 무작위로 뽑는다 — 그래야 튜토리얼에서 보여주는 힌트
+// 배지들이 항상 "비공개"나 "?" 없이 전부 실제 값으로 채워진 모습을 보여줄 수 있다.
 function pickTutorialTarget() {
-  return (
-    streamers.find((s) => s.startYear != null && s.fanCount != null && s.crewName && hasValidImagePath(s.crewImage)) ||
-    streamers.find((s) => s.startYear != null && s.fanCount != null) ||
-    streamers[0]
+  const fullyKnown = streamers.filter((s) =>
+    s.gender &&
+    getCrewNames(s).length > 0 &&
+    s.startYear != null &&
+    s.age != null &&
+    s.fanCount != null
   );
+  const pool = fullyKnown.length > 0 ? fullyKnown : streamers; // 만에 하나 그런 스트리머가 없으면 안전하게 전체에서 뽑는다
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function startTutorial() {
