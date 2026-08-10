@@ -860,6 +860,26 @@ html, body {
   z-index: 2000;
 }
 
+/* 크루 로고를 백그라운드에서 미리 불러오는 동안만 살짝 보여주는 작은 알림 —
+   사이트 진입/게임 플레이를 막지 않고, 화면 하단에 조용히 떴다가 다 불러오면 사라진다. */
+.image-preload-status {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1500;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
 /* ---------------------------------------------------------
    버튜버 도감 (검색/필터로 전체 버튜버 정보를 훑어보는 오버레이 모달)
 --------------------------------------------------------- */
