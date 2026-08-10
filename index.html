@@ -226,13 +226,42 @@
               <option value="남">남</option>
               <option value="여">여</option>
             </select>
+            <select id="dexChosungFilter" class="dex-filter-select">
+              <option value="">초성 전체</option>
+              <option value="ㄱ">ㄱ</option>
+              <option value="ㄲ">ㄲ</option>
+              <option value="ㄴ">ㄴ</option>
+              <option value="ㄷ">ㄷ</option>
+              <option value="ㄸ">ㄸ</option>
+              <option value="ㄹ">ㄹ</option>
+              <option value="ㅁ">ㅁ</option>
+              <option value="ㅂ">ㅂ</option>
+              <option value="ㅃ">ㅃ</option>
+              <option value="ㅅ">ㅅ</option>
+              <option value="ㅆ">ㅆ</option>
+              <option value="ㅇ">ㅇ</option>
+              <option value="ㅈ">ㅈ</option>
+              <option value="ㅉ">ㅉ</option>
+              <option value="ㅊ">ㅊ</option>
+              <option value="ㅋ">ㅋ</option>
+              <option value="ㅌ">ㅌ</option>
+              <option value="ㅍ">ㅍ</option>
+              <option value="ㅎ">ㅎ</option>
+            </select>
             <select id="dexCrewFilter" class="dex-filter-select">
               <option value="">소속 크루 전체</option>
             </select>
+            <select id="dexStartYearFilter" class="dex-filter-select">
+              <option value="">방송 시작 전체</option>
+            </select>
+            <select id="dexAgeFilter" class="dex-filter-select">
+              <option value="">나이 전체</option>
+            </select>
             <div class="dex-range-inputs">
-              <input id="dexFanMinInput" type="number" min="0" class="range-number-input dex-fan-input" placeholder="애청자 최소" />
+              <span class="dex-range-label">애청자 수</span>
+              <input id="dexFanMinInput" type="number" min="0" class="range-number-input dex-fan-input" placeholder="최소" />
               <span class="range-tilde">~</span>
-              <input id="dexFanMaxInput" type="number" min="0" class="range-number-input dex-fan-input" placeholder="애청자 최대" />
+              <input id="dexFanMaxInput" type="number" min="0" class="range-number-input dex-fan-input" placeholder="최대" />
             </div>
             <button id="dexFilterResetBtn" class="ghost-btn">필터 초기화</button>
           </div>

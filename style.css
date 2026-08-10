@@ -954,6 +954,13 @@ html, body {
   gap: 6px;
 }
 
+.dex-range-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 .dex-fan-input {
   width: 96px;
   padding: 9px 6px;

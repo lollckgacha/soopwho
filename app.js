@@ -135,7 +135,10 @@ const dexModalEl = $("#dexModal");
 const dexCloseBtn = $("#dexCloseBtn");
 const dexSearchInputEl = $("#dexSearchInput");
 const dexGenderFilterEl = $("#dexGenderFilter");
+const dexChosungFilterEl = $("#dexChosungFilter");
 const dexCrewFilterEl = $("#dexCrewFilter");
+const dexStartYearFilterEl = $("#dexStartYearFilter");
+const dexAgeFilterEl = $("#dexAgeFilter");
 const dexFanMinInputEl = $("#dexFanMinInput");
 const dexFanMaxInputEl = $("#dexFanMaxInput");
 const dexFilterResetBtn = $("#dexFilterResetBtn");
@@ -257,14 +260,16 @@ function showModeMenu() {
 // 화면 전환(showScreen)이 아니라 현재 화면 위에 뜨는 오버레이 모달이라서, 게임 중에 열어도
 // 진행 중인 라운드(target/guessedNames/board 등)를 전혀 건드리지 않고 닫으면 그대로 이어서 할 수 있다.
 // ---------------------------------------------------------
-let dexCrewOptionsBuilt = false;
+let dexFilterOptionsBuilt = false;
 
 async function openDex() {
   dexModalEl.classList.remove("hidden");
   await dataLoadPromise; // 홈 화면에서 게임을 한 번도 시작하지 않은 채 열었을 수도 있으므로 데이터 로드를 기다린다
-  if (!dexCrewOptionsBuilt) {
+  if (!dexFilterOptionsBuilt) {
     populateDexCrewFilter();
-    dexCrewOptionsBuilt = true;
+    populateDexNumericFilter(dexStartYearFilterEl, "startYear", (v) => `${v}년`);
+    populateDexNumericFilter(dexAgeFilterEl, "age", (v) => `${v}세`);
+    dexFilterOptionsBuilt = true;
   }
   renderDexList();
   dexSearchInputEl.focus();
@@ -287,24 +292,59 @@ function populateDexCrewFilter() {
   });
 }
 
+// 방송 시작/나이 필터: 범위 입력이 아니라 실제로 존재하는 값들만 목록으로 골라 담는다
+// (성별/초성/크루 필터와 같은 방식) — 오름차순으로 정렬해서 넣는다.
+function populateDexNumericFilter(selectEl, field, formatter) {
+  const values = new Set();
+  streamers.forEach((s) => {
+    if (s[field] != null) values.add(s[field]);
+  });
+  const sorted = Array.from(values).sort((a, b) => a - b);
+  sorted.forEach((value) => {
+    const opt = document.createElement("option");
+    opt.value = String(value);
+    opt.textContent = formatter(value);
+    selectEl.appendChild(opt);
+  });
+}
+
+// (min, max) 입력칸 두 개를 읽어서 {min, max} 형태로 반환한다 (빈칸이면 null = 그쪽 제한 없음).
+function readRangeInputs(minEl, maxEl) {
+  const minRaw = minEl.value.trim();
+  const maxRaw = maxEl.value.trim();
+  return {
+    min: minRaw === "" ? null : Number(minRaw),
+    max: maxRaw === "" ? null : Number(maxRaw),
+  };
+}
+
+// value가 [min, max] 범위 안에 있는지 확인한다. min/max가 둘 다 null이면(범위 필터 자체를 안 쓰는
+// 경우) 항상 true. 범위가 걸려 있는데 value가 비공개(null)라면 확인할 수 없으니 false로 제외한다.
+function isInRange(value, min, max) {
+  if (min == null && max == null) return true;
+  if (value == null) return false;
+  if (min != null && value < min) return false;
+  if (max != null && value > max) return false;
+  return true;
+}
+
 function renderDexList() {
   const query = dexSearchInputEl.value.trim().toLowerCase();
   const genderFilter = dexGenderFilterEl.value;
+  const chosungFilter = dexChosungFilterEl.value;
   const crewFilter = dexCrewFilterEl.value;
-  const fanMinRaw = dexFanMinInputEl.value.trim();
-  const fanMaxRaw = dexFanMaxInputEl.value.trim();
-  const fanMin = fanMinRaw === "" ? null : Number(fanMinRaw);
-  const fanMax = fanMaxRaw === "" ? null : Number(fanMaxRaw);
+  const startYearFilter = dexStartYearFilterEl.value;
+  const ageFilter = dexAgeFilterEl.value;
+  const fanRange = readRangeInputs(dexFanMinInputEl, dexFanMaxInputEl);
 
   const filtered = streamers.filter((s) => {
     if (query && !s.name.toLowerCase().includes(query)) return false;
     if (genderFilter && s.gender !== genderFilter) return false;
+    if (chosungFilter && getChosung(s.name) !== chosungFilter) return false;
     if (crewFilter && !getCrewNames(s).includes(crewFilter)) return false;
-    if (fanMin != null || fanMax != null) {
-      if (s.fanCount == null) return false; // 애청자 수가 비공개면 범위를 확인할 수 없으니 제외
-      if (fanMin != null && s.fanCount < fanMin) return false;
-      if (fanMax != null && s.fanCount > fanMax) return false;
-    }
+    if (startYearFilter && s.startYear !== Number(startYearFilter)) return false;
+    if (ageFilter && s.age !== Number(ageFilter)) return false;
+    if (!isInRange(s.fanCount, fanRange.min, fanRange.max)) return false;
     return true;
   });
 
@@ -385,7 +425,10 @@ function dexTextCell(text, tooltip) {
 function resetDexFilters() {
   dexSearchInputEl.value = "";
   dexGenderFilterEl.value = "";
+  dexChosungFilterEl.value = "";
   dexCrewFilterEl.value = "";
+  dexStartYearFilterEl.value = "";
+  dexAgeFilterEl.value = "";
   dexFanMinInputEl.value = "";
   dexFanMaxInputEl.value = "";
   renderDexList();
@@ -736,7 +779,10 @@ function bindEvents() {
   });
   dexSearchInputEl.addEventListener("input", renderDexList);
   dexGenderFilterEl.addEventListener("change", renderDexList);
+  dexChosungFilterEl.addEventListener("change", renderDexList);
   dexCrewFilterEl.addEventListener("change", renderDexList);
+  dexStartYearFilterEl.addEventListener("change", renderDexList);
+  dexAgeFilterEl.addEventListener("change", renderDexList);
   dexFanMinInputEl.addEventListener("input", renderDexList);
   dexFanMaxInputEl.addEventListener("input", renderDexList);
   dexFilterResetBtn.addEventListener("click", resetDexFilters);
