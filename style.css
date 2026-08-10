@@ -1015,6 +1015,54 @@ html, body {
   font-size: 13px;
 }
 
+.dex-row-clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+
+.dex-row-clickable:hover {
+  background: var(--panel-2);
+}
+
+/* 도감 행을 클릭하면 뜨는 사진 팝업 — 도감(.dex-modal, z-index:1000)보다 위에 뜬다 */
+.dex-photo-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 22, 38, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1600;
+}
+
+.dex-photo-panel {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.dex-photo-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  font-size: 15px;
+}
+
+.dex-photo-image {
+  margin-top: 8px;
+}
+
 .board-wrap {
   overflow-x: auto;
 }

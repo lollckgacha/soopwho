@@ -145,6 +145,10 @@ const dexFilterResetBtn = $("#dexFilterResetBtn");
 const dexListBodyEl = $("#dexListBody");
 const dexEmptyEl = $("#dexEmpty");
 const dexSortHeaderEls = Array.from(document.querySelectorAll(".dex-sort"));
+const dexPhotoPopupEl = $("#dexPhotoPopup");
+const dexPhotoCloseBtn = $("#dexPhotoCloseBtn");
+const dexPhotoImageEl = $("#dexPhotoImage");
+const dexPhotoNameEl = $("#dexPhotoName");
 const imagePreloadStatusEl = $("#imagePreloadStatus");
 const imagePreloadTextEl = $("#imagePreloadText");
 
@@ -277,6 +281,7 @@ async function openDex() {
 
 function closeDex() {
   dexModalEl.classList.add("hidden");
+  closeDexPhoto(); // 도감을 닫을 때 사진 팝업이 떠 있었다면 같이 닫아둔다
 }
 
 // 실제 존재하는(멤버가 1명 이상인) 크루만 필터 목록에 올린다 — 크루 탭의 빈 플레이스홀더 행은 제외.
@@ -394,7 +399,9 @@ function updateDexSortIndicators() {
 
 function renderDexRow(streamer) {
   const row = document.createElement("div");
-  row.className = "board-row dex-row";
+  row.className = "board-row dex-row dex-row-clickable";
+  row.title = "클릭하면 사진을 볼 수 있어요";
+  row.addEventListener("click", () => openDexPhoto(streamer));
 
   row.appendChild(nameCell(streamer.name));
   row.appendChild(dexTextCell(genderSymbol(streamer.gender) || "비공개"));
@@ -410,6 +417,17 @@ function renderDexRow(streamer) {
   row.appendChild(dexTextCell(formatFanCount(streamer.fanCount)));
 
   return row;
+}
+
+// 도감에서 스트리머 행을 클릭하면 사진 팝업을 띄운다 (정답 공개 사진과 같은 방식으로 렌더링).
+function openDexPhoto(streamer) {
+  dexPhotoNameEl.textContent = streamer.name;
+  renderStreamerPhoto(dexPhotoImageEl, streamer);
+  dexPhotoPopupEl.classList.remove("hidden");
+}
+
+function closeDexPhoto() {
+  dexPhotoPopupEl.classList.add("hidden");
 }
 
 function dexTextCell(text, tooltip) {
@@ -774,8 +792,15 @@ function bindEvents() {
   dexModalEl.addEventListener("click", (e) => {
     if (e.target === dexModalEl) closeDex(); // 패널 바깥(어두운 배경) 클릭 시 닫기
   });
+  dexPhotoCloseBtn.addEventListener("click", closeDexPhoto);
+  dexPhotoPopupEl.addEventListener("click", (e) => {
+    if (e.target === dexPhotoPopupEl) closeDexPhoto(); // 팝업 바깥(어두운 배경) 클릭 시 닫기
+  });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !dexModalEl.classList.contains("hidden")) closeDex();
+    if (e.key !== "Escape") return;
+    // 사진 팝업이 떠 있으면 그것부터 닫고, 도감 자체는 다음 Escape에 닫는다.
+    if (!dexPhotoPopupEl.classList.contains("hidden")) closeDexPhoto();
+    else if (!dexModalEl.classList.contains("hidden")) closeDex();
   });
   dexSearchInputEl.addEventListener("input", renderDexList);
   dexGenderFilterEl.addEventListener("change", renderDexList);
@@ -1378,13 +1403,11 @@ function resetReveal() {
   revealNameEl.textContent = "";
 }
 
-function revealTarget(streamer) {
-  revealPhotoEl.classList.add("solved");
-  revealNameEl.textContent = streamer.name;
-  revealNameEl.classList.remove("hidden");
-
+// 스트리머 사진을 containerEl 안에 채운다 — 사진 주소가 없거나 깨져 있으면(404 등)
+// 이름 첫 글자로 대체한다. 정답 공개 사진(revealTarget)과 도감 사진 팝업(openDexPhoto)이 공유한다.
+function renderStreamerPhoto(containerEl, streamer) {
   function showInitial() {
-    revealPhotoEl.innerHTML =
+    containerEl.innerHTML =
       '<span class="reveal-initial">' + escapeHtml(streamer.name.slice(0, 1)) + "</span>";
   }
 
@@ -1392,12 +1415,19 @@ function revealTarget(streamer) {
     const img = document.createElement("img");
     img.src = streamer.photo;
     img.alt = streamer.name;
-    img.onerror = showInitial; // 이미지 주소가 없거나 깨져 있으면 이름 첫 글자로 대체
-    revealPhotoEl.innerHTML = "";
-    revealPhotoEl.appendChild(img);
+    img.onerror = showInitial;
+    containerEl.innerHTML = "";
+    containerEl.appendChild(img);
   } else {
     showInitial();
   }
+}
+
+function revealTarget(streamer) {
+  revealPhotoEl.classList.add("solved");
+  revealNameEl.textContent = streamer.name;
+  revealNameEl.classList.remove("hidden");
+  renderStreamerPhoto(revealPhotoEl, streamer);
 }
 
 // ---------------------------------------------------------
