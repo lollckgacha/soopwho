@@ -610,8 +610,8 @@ html, body {
 }
 
 .reveal-photo {
-  width: 300px;
-  height: 300px;
+  width: 210px;
+  height: 210px;
   max-width: 80vw;
   max-height: 80vw;
   display: flex;
@@ -621,20 +621,20 @@ html, body {
 }
 
 .reveal-photo .reveal-mark {
-  font-size: 72px;
+  font-size: 50px;
   font-weight: 800;
   color: var(--text-dim);
 }
 
 .reveal-photo .reveal-initial {
-  font-size: 48px;
+  font-size: 34px;
   font-weight: 800;
   color: #ffffff;
 }
 
 .reveal-photo img {
-  width: 100%;
-  height: 100%;
+  width: 200px;
+  height: 200px;
   /* 이미지가 좌우로 길거나(가로) 위아래로 길면(세로) 정사각형 틀에 맞춰
      중앙 부분만 남기고 나머지는 잘라낸다 */
   object-fit: cover;
@@ -1256,9 +1256,7 @@ html, body {
   .dex-fan-input { width: 84px; }
   .badge { width: 54px; height: 54px; font-size: 12px; }
   .badge-crew img { width: 38px; height: 38px; }
-  .reveal-photo { width: 220px; height: 220px; }
-  .reveal-photo .reveal-mark { font-size: 56px; }
-  .reveal-photo .reveal-initial { font-size: 40px; }
+  /* 기본 크기(210px 박스/200px 이미지)가 이미 모바일 폭에도 넉넉히 들어가서 별도 축소가 필요 없다 */
 
   .home-btn { font-size: 16px; padding: 16px; }
   .home-btn.primary { font-size: 18px; }
