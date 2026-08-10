@@ -168,20 +168,22 @@ async function loadStreamerData() {
     ((data && data.crews) || []).forEach((c) => {
       if (c && c.name) crewImageByName[c.name] = c.image || "";
     });
-    preloadCrewImages();
+    preloadAllImages();
   } catch (e) {
     dataLoadFailed = true;
     console.error(e);
   }
 }
 
-// 크루 로고들을 백그라운드에서 미리 불러온다 (스트리머 개인 사진은 수가 너무 많아서 제외 —
-// 크루 로고는 74개 정도로 적고 게임 중 계속 반복 등장하므로, 미리 캐싱해두면 나중에 badge/확정칸에
-// 뜰 때 지연 없이 바로 보인다). 사이트 진입/게임 플레이는 전혀 막지 않고, 다 불러올 때까지만
-// 작은 상태 표시를 살짝 보여준다.
-function preloadCrewImages() {
+// 크루 로고 + 스트리머 개인 사진을 전부 백그라운드에서 미리 불러온다. 크루 로고는 게임 중 계속
+// 반복 등장(badge/확정칸)하고, 스트리머 사진은 정답 공개/도감 팝업에서 쓰이는데 수가 많아서(400장+)
+// 처음 볼 때 로딩이 느껴질 수 있어 같이 미리 캐싱해둔다. 사이트 진입/게임 플레이는 전혀 막지 않고,
+// 다 불러올 때까지만 작은 상태 표시를 살짝 보여준다.
+function preloadAllImages() {
+  const crewPaths = Object.values(crewImageByName);
+  const streamerPaths = streamers.map((s) => s.photo);
   const uniquePaths = Array.from(
-    new Set(Object.values(crewImageByName).filter((path) => hasValidImagePath(path)))
+    new Set([...crewPaths, ...streamerPaths].filter((path) => hasValidImagePath(path)))
   );
   if (uniquePaths.length === 0) return;
 
@@ -205,7 +207,7 @@ function preloadCrewImages() {
 }
 
 function updateImagePreloadText(loadedCount, total) {
-  imagePreloadTextEl.textContent = `🖼️ 크루 이미지 불러오는 중... (${loadedCount}/${total})`;
+  imagePreloadTextEl.textContent = `🖼️ 이미지 불러오는 중... (${loadedCount}/${total})`;
 }
 
 bindEvents();
