@@ -841,6 +841,25 @@ html, body {
   border-color: var(--accent);
 }
 
+/* "💡 힌트보기"처럼 한 판에 한 번만 쓸 수 있는 버튼이 다 쓰이거나 더 채울 게 없을 때 */
+.ghost-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ghost-btn:disabled:hover {
+  background: transparent;
+  border-color: var(--border);
+}
+
+/* 정답을 맞혔을 때 뜨는 색종이 폭죽 캔버스 — launchConfetti()가 붙였다 뗀다 */
+.confetti-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2000;
+}
+
 /* ---------------------------------------------------------
    버튜버 도감 (검색/필터로 전체 버튜버 정보를 훑어보는 오버레이 모달)
 --------------------------------------------------------- */

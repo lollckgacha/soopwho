@@ -32,6 +32,7 @@ const RANGE_LAST_INDEX = RANGE_STEPS.length - 1;
 let streamers = [];
 let target = null;
 let guessedNames = [];
+let hintUsedThisRound = false; // "💡 힌트보기" 버튼을 이번 판에서 이미 썼는지 (한 판에 한 번만)
 let crewImageByName = {}; // 크루명 -> 이미지 경로 (대표 크루가 아닌 다른 소속 크루를 힌트로 보여줄 때 필요)
 let isTutorial = false;
 let tutorialStepIndex = 0;
@@ -117,6 +118,7 @@ const submitBtn = $("#submitBtn");
 const suggestionsEl = $("#suggestions");
 const boardBodyEl = $("#boardBody");
 const guessCountEl = $("#guessCount");
+const hintBtn = $("#hintBtn");
 const giveupBtn = $("#giveupBtn");
 const resultPanelEl = $("#resultPanel");
 const resultTextEl = $("#resultText");
@@ -429,12 +431,14 @@ function finalizeRangeInputs() {
 function resetGameState() {
   target = null;
   guessedNames = [];
+  hintUsedThisRound = false;
   confirmed = { name: false, gender: false, crew: false, startYear: false, age: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
   resetReveal();
   showRoundInProgress();
   renderConfirmedHints();
+  updateHintBtnState();
 }
 
 async function runInGameScreen(startFn) {
@@ -495,12 +499,14 @@ function pickRandomTarget(excludeName) {
 function startNewGame(newTarget) {
   target = newTarget || pickRandomTarget();
   guessedNames = [];
+  hintUsedThisRound = false;
   confirmed = { name: false, gender: false, crew: false, startYear: false, age: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
   resetReveal();
   showRoundInProgress();
   renderConfirmedHints();
+  updateHintBtnState();
   inputEl.value = "";
   inputEl.focus();
 }
@@ -517,14 +523,32 @@ function updateConfirmedFromCmp(cmp) {
   if (cmp.fanCmp.match) confirmed.fanCount = true;
 }
 
-// 정답이 처음부터 성별/방송 시작 연도/나이가 비공개거나 크루 무소속이면, 어차피 맞는 걸 찾을 수 없으니
-// 첫 시도 직후 자동으로 그 사실을 확정 칸에 채워준다 (given hint 칩과 같은 판단 기준).
-// 이름(초성)은 모든 스트리머가 항상 갖고 있어서 비공개일 수 없으므로 자동 공개 대상이 아니다.
-function autoRevealUnknownGivens() {
-  if (getCrewNames(target).length === 0) confirmed.crew = true;
-  if (!target.gender) confirmed.gender = true;
-  if (target.startYear == null) confirmed.startYear = true;
-  if (target.age == null) confirmed.age = true;
+// "💡 힌트보기" 버튼: 소속 크루/방송 시작/나이 중 아직 확정되지 않은 항목 하나를 무작위로 확정칸에
+// 채워준다. 한 판에 한 번만 쓸 수 있고, 시도 횟수를 1회 소모한다(실제로 스트리머를 추측한 건 아니라서
+// guessedNames에는 추가하지 않고, getAttemptCount()가 hintUsedThisRound를 더해서 카운트한다).
+const HINT_REVEAL_CATEGORIES = ["crew", "startYear", "age"];
+
+function useHintReveal() {
+  if (!target || hintUsedThisRound) return;
+  const candidates = HINT_REVEAL_CATEGORIES.filter((key) => !confirmed[key]);
+  if (candidates.length === 0) return; // 이미 셋 다 확정된 경우 — 버튼이 비활성화돼 있어야 정상
+  const picked = candidates[Math.floor(Math.random() * candidates.length)];
+  confirmed[picked] = true;
+  hintUsedThisRound = true;
+  renderConfirmedHints();
+  updateGuessCount();
+  updateHintBtnState();
+}
+
+// "💡 힌트보기" 버튼의 활성/비활성 상태를 갱신한다 — 이미 썼거나, 채워줄 항목이 더 없으면 비활성화.
+function updateHintBtnState() {
+  const noCandidatesLeft = HINT_REVEAL_CATEGORIES.every((key) => confirmed[key]);
+  hintBtn.disabled = hintUsedThisRound || noCandidatesLeft;
+}
+
+// 실제로 추측(guessedNames)한 횟수 + 힌트보기 사용 여부(1회 소모)를 합친, 화면에 보여줄 시도 횟수.
+function getAttemptCount() {
+  return guessedNames.length + (hintUsedThisRound ? 1 : 0);
 }
 
 function renderConfirmedHints() {
@@ -595,6 +619,7 @@ function showRoundInProgress() {
   resultPanelEl.classList.add("hidden");
   guessBoxEl.classList.remove("hidden");
   giveupBtn.classList.remove("hidden");
+  hintBtn.classList.remove("hidden");
   inputEl.disabled = false;
   submitBtn.disabled = false;
   // 지난 라운드가 튜토리얼 완료 상태였다면 버튼을 기본 상태로 되돌린다
@@ -748,15 +773,16 @@ function bindEvents() {
     }
   });
 
+  hintBtn.addEventListener("click", useHintReveal);
   giveupBtn.addEventListener("click", () => {
     if (!target) return;
     if (!guessedNames.includes(target.name)) {
       const cmp = renderGuessRow(target);
       updateConfirmedFromCmp(cmp);
       guessedNames.push(target.name);
-      if (guessedNames.length === 1) autoRevealUnknownGivens();
       renderConfirmedHints();
       updateGuessCount();
+      updateHintBtnState();
     }
     showWin(true);
   });
@@ -852,9 +878,9 @@ function submitGuess(rawName) {
   guessedNames.push(streamer.name);
   const cmp = renderGuessRow(streamer);
   updateConfirmedFromCmp(cmp);
-  if (guessedNames.length === 1) autoRevealUnknownGivens();
   renderConfirmedHints();
   updateGuessCount();
+  updateHintBtnState();
   inputEl.value = "";
   suggestionsEl.classList.add("hidden");
 
@@ -879,7 +905,7 @@ function shakeInput() {
 }
 
 function updateGuessCount() {
-  guessCountEl.textContent = `시도: ${guessedNames.length}회`;
+  guessCountEl.textContent = `시도: ${getAttemptCount()}회`;
 }
 
 // ---------------------------------------------------------
@@ -1166,14 +1192,78 @@ function numberBadge(value, cmp, formatter, tooltipFn, unknownText) {
   return div;
 }
 
+// ---------------------------------------------------------
+// 정답 맞혔을 때 색종이 폭죽 효과 — 외부 라이브러리 없이 캔버스에 직접 그린다.
+// 화면 전체를 덮는 캔버스를 하나 붙였다가, 애니메이션이 끝나면 스스로 제거한다.
+// ---------------------------------------------------------
+function launchConfetti() {
+  const canvas = document.createElement("canvas");
+  canvas.className = "confetti-canvas";
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    canvas.remove();
+    return;
+  }
+
+  const colors = ["#0388ff", "#38bdf8", "#ffd166", "#ff5c5c", "#7dd3fc", "#ffffff"];
+  const pieceCount = 140;
+  const pieces = [];
+  for (let i = 0; i < pieceCount; i++) {
+    pieces.push({
+      x: canvas.width / 2 + (Math.random() - 0.5) * 160,
+      y: canvas.height * 0.35 + (Math.random() - 0.5) * 40,
+      vx: (Math.random() - 0.5) * 11,
+      vy: Math.random() * -11 - 4,
+      size: Math.random() * 6 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 16,
+      gravity: 0.22 + Math.random() * 0.15,
+    });
+  }
+
+  let frame = 0;
+  const totalFrames = 130;
+
+  function tick() {
+    frame++;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach((p) => {
+      p.vy += p.gravity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotationSpeed;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate((p.rotation * Math.PI) / 180);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+      ctx.restore();
+    });
+
+    if (frame < totalFrames) {
+      requestAnimationFrame(tick);
+    } else {
+      canvas.remove();
+    }
+  }
+
+  requestAnimationFrame(tick);
+}
+
 function showWin(gaveUp) {
   guessBoxEl.classList.add("hidden");
   giveupBtn.classList.add("hidden");
+  hintBtn.classList.add("hidden");
   suggestionsEl.classList.add("hidden");
 
+  const attempts = getAttemptCount();
   resultTextEl.textContent = gaveUp
-    ? `아쉽지만 정답은 "${target.name}" 였습니다. (${guessedNames.length}번 시도)`
-    : `🎉 정답입니다! "${target.name}" (${guessedNames.length}번 시도)`;
+    ? `아쉽지만 정답은 "${target.name}" 였습니다. (${attempts}번 시도)`
+    : `🎉 정답입니다! "${target.name}" (${attempts}번 시도)`;
 
   if (target.stationUrl) {
     stationLinkBtn.href = target.stationUrl;
@@ -1186,8 +1276,9 @@ function showWin(gaveUp) {
 
   revealTarget(target);
 
-  if (!gaveUp && !isTutorial) {
-    recordWin(guessedNames.length);
+  if (!gaveUp) {
+    launchConfetti();
+    if (!isTutorial) recordWin(attempts);
   }
 
   if (isTutorial) {
