@@ -769,13 +769,13 @@ function updateConfirmedFromCmp(cmp) {
   if (cmp.fanCmp.match) confirmed.fanCount = true;
 }
 
-// "💡 힌트보기" 버튼: 소속 크루/방송 시작/나이/애청자 수 중 아직 확정되지 않은 항목 하나를 무작위로
-// 확정칸에 채워준다(이름/성별은 대상에서 제외 — 이름은 힌트 없이도 초성으로 항상 유추 가능하고,
-// 성별은 선택지가 둘뿐이라 힌트로서 의미가 약해서). 횟수 제한은 없이 몇 번이든 쓸 수 있지만, 쓸 때마다
-// 시도 횟수를 1회씩 소모한다(실제로 스트리머를 추측한 건 아니라서 guessedNames에는 추가하지 않고,
-// getAttemptCount()가 hintUseCount를 더해서 카운트한다). 채울 후보가 다 떨어지면(넷 다 확정) 자연히
-// 더 쓸 수 없다.
-const HINT_REVEAL_CATEGORIES = ["crew", "startYear", "age", "fanCount"];
+// "💡 힌트보기" 버튼: 방송 시작/나이/애청자 수 중 아직 확정되지 않은 항목 하나를 무작위로
+// 확정칸에 채워준다(이름/성별/소속크루는 대상에서 제외 — 이름은 힌트 없이도 초성으로 항상 유추
+// 가능하고, 성별은 선택지가 둘뿐이라 힌트로서 의미가 약하고, 소속크루도 힌트보기로는 안 알려준다).
+// 횟수 제한은 없이 몇 번이든 쓸 수 있지만, 쓸 때마다 시도 횟수를 1회씩 소모한다(실제로 스트리머를
+// 추측한 건 아니라서 guessedNames에는 추가하지 않고, getAttemptCount()가 hintUseCount를 더해서
+// 카운트한다). 채울 후보가 다 떨어지면(셋 다 확정) 자연히 더 쓸 수 없다.
+const HINT_REVEAL_CATEGORIES = ["startYear", "age", "fanCount"];
 
 function useHintReveal() {
   if (!target) return;
@@ -790,7 +790,7 @@ function useHintReveal() {
   checkDailyAttemptLimit();
 }
 
-// "💡 힌트보기" 버튼의 활성/비활성 상태를 갱신한다 — 채워줄 항목(크루/방송시작/나이/애청자 수)이 더 없으면 비활성화.
+// "💡 힌트보기" 버튼의 활성/비활성 상태를 갱신한다 — 채워줄 항목(방송시작/나이/애청자 수)이 더 없으면 비활성화.
 function updateHintBtnState() {
   const noCandidatesLeft = HINT_REVEAL_CATEGORIES.every((key) => confirmed[key]);
   hintBtn.disabled = noCandidatesLeft;
