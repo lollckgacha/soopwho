@@ -19,6 +19,7 @@
 
       <div class="home-menu" id="homeMenu">
         <button id="startGameBtn" class="home-btn primary">🎮 게임 시작</button>
+        <button id="dailyChallengeBtn" class="home-btn" title="모두에게 같은 스트리머가 나오는 오늘의 문제, 10번 안에 맞혀보세요!">🗓️ 일일 도전</button>
         <button id="tutorialBtn" class="home-btn">📘 튜토리얼</button>
         <button id="statsBtn" class="home-btn">📊 통계</button>
         <button id="dexHomeBtn" class="home-btn">📖 버튜버 도감</button>
@@ -36,7 +37,7 @@
 
       <div class="range-menu hidden" id="modeMenu">
         <div id="modePresets">
-          <p class="mode-menu-title">출제 범위를 선택하세요</p>
+          <p class="mode-menu-title">출제범위 (애청자 수)를 선택하세요</p>
 
           <div class="range-preset-list">
             <button class="range-mode-btn" data-min="0" data-max="13">전체</button>
@@ -137,8 +138,14 @@
 
       <main id="game" class="hidden">
         <div class="reveal-card">
-          <div class="reveal-photo" id="revealPhoto">
-            <span class="reveal-mark">?</span>
+          <div class="reveal-photo-wrap">
+            <div class="reveal-photo" id="revealPhoto">
+              <span class="reveal-mark">?</span>
+            </div>
+            <div id="firstGuessHint" class="first-guess-hint hidden">
+              <button id="firstGuessHintCloseBtn" class="first-guess-hint-close" title="닫기">✕</button>
+              <p>스트리머 이름을 입력해<br />힌트를 얻어나가세요!</p>
+            </div>
           </div>
           <div id="revealName" class="reveal-name hidden"></div>
 
@@ -189,7 +196,7 @@
         <div class="toolbar">
           <span id="guessCount">시도: 0회</span>
           <button id="dexGameBtn" class="ghost-btn" title="버튜버 도감">📖 도감</button>
-          <button id="hintBtn" class="ghost-btn" title="소속 크루/방송 시작/나이 중 하나를 무작위로 확정칸에 채워줍니다 (한 판에 한 번, 시도 1회 소모)">💡 힌트보기</button>
+          <button id="hintBtn" class="ghost-btn" title="소속 크루/방송 시작/나이 중 하나를 무작위로 확정칸에 채워줍니다 (쓸 때마다 시도 1회 소모, 횟수 제한 없음)">💡 힌트보기</button>
           <button id="giveupBtn" class="ghost-btn">🏳️ 정답 보기</button>
         </div>
 

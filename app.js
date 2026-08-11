@@ -8,6 +8,8 @@ const FIREBASE_URL = "https://dongpa2026-2fda5-default-rtdb.asia-southeast1.fire
 const DATA_PATH = "soop_who.json";
 const STATS_KEY = "soopWhoAreYa.stats.v1";
 const VOLUME_KEY = "soopWhoAreYa.volume";
+const DAILY_KEY = "soopWhoAreYa.daily.v1";
+const DAILY_ATTEMPT_LIMIT = 10;
 
 // 출제 범위 슬라이더의 눈금들. 각 손잡이는 이 배열의 인덱스(0~13)를 값으로 갖는다.
 // 간단한 버튼("2천▲" 등)은 결국 이 인덱스 두 개(min/max)를 지정하는 것과 같다.
@@ -32,9 +34,10 @@ const RANGE_LAST_INDEX = RANGE_STEPS.length - 1;
 let streamers = [];
 let target = null;
 let guessedNames = [];
-let hintUsedThisRound = false; // "💡 힌트보기" 버튼을 이번 판에서 이미 썼는지 (한 판에 한 번만)
+let hintUseCount = 0; // "💡 힌트보기" 버튼을 이번 판에서 몇 번 썼는지 (횟수 제한은 없고, 쓸 때마다 시도 횟수에 더해짐)
 let crewImageByName = {}; // 크루명 -> 이미지 경로 (대표 크루가 아닌 다른 소속 크루를 힌트로 보여줄 때 필요)
 let isTutorial = false;
+let isDailyChallenge = false; // 오늘의 일일 도전 라운드인지 (모두에게 같은 정답, 10회 제한)
 let tutorialStepIndex = 0;
 let currentRangeMin = 0; // 출제 범위 하한(포함), 0 = 제한 없음
 let currentRangeMax = Infinity; // 출제 범위 상한(미포함), Infinity = 제한 없음
@@ -55,6 +58,7 @@ const gameScreenEl = $("#gameScreen");
 // 메인 화면
 const homeMenuEl = $("#homeMenu");
 const startGameBtn = $("#startGameBtn");
+const dailyChallengeBtn = $("#dailyChallengeBtn");
 const tutorialBtn = $("#tutorialBtn");
 const statsBtn = $("#statsBtn");
 const settingsBtn = $("#settingsBtn");
@@ -126,6 +130,8 @@ const playAgainBtn = $("#playAgainBtn");
 const stationLinkBtn = $("#stationLinkBtn");
 const revealPhotoEl = $("#revealPhoto");
 const revealNameEl = $("#revealName");
+const firstGuessHintEl = $("#firstGuessHint");
+const firstGuessHintCloseBtn = $("#firstGuessHintCloseBtn");
 const dexGameBtn = $("#dexGameBtn");
 
 // 버튜버 도감 (검색/필터로 전체 버튜버를 훑어보는 오버레이 모달 — 어느 화면에서 열어도
@@ -529,8 +535,9 @@ function finalizeRangeInputs() {
 // 진행 중인 라운드를 완전히 비운다 (다음에 "게임 시작"을 누르면 새 문제로 시작)
 function resetGameState() {
   target = null;
+  isDailyChallenge = false;
   guessedNames = [];
-  hintUsedThisRound = false;
+  hintUseCount = 0;
   confirmed = { name: false, gender: false, crew: false, startYear: false, age: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
@@ -538,6 +545,7 @@ function resetGameState() {
   showRoundInProgress();
   renderConfirmedHints();
   updateHintBtnState();
+  hideFirstGuessHint();
 }
 
 async function runInGameScreen(startFn) {
@@ -564,6 +572,86 @@ function enterRealGame() {
   hideTutorialUI();
   // 매번 새 문제로 시작한다 (이전 진행 상황을 이어서 하지 않음)
   runInGameScreen(() => startNewGame());
+}
+
+// ---------------------------------------------------------
+// 일일 도전 — 모든 유저에게 오늘 하루 동안 같은 스트리머가 정답으로 나오고, 10번 안에 맞혀야 한다.
+// 오늘 이미 플레이했으면 다시 도전할 수 없고(내일 다시 오라는 안내만 뜸), 결과는 일반 통계와
+// 섞이지 않도록 별도 localStorage 키에 저장한다.
+// ---------------------------------------------------------
+function getTodayDateString() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// 문자열을 간단한 정수로 해시한다 — 같은 문자열(=같은 날짜)이면 항상 같은 값이 나온다.
+function hashStringToInt(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+// 오늘의 도전 정답: 이름순으로 정렬해 항상 같은 순서를 만든 뒤, 오늘 날짜 문자열의 해시값으로
+// 그중 한 명을 고른다 — 같은 날이면 누가 접속하든 항상 같은 스트리머가 나오고, 날짜가 바뀌면
+// 자동으로 다른 사람으로 바뀐다.
+function pickDailyTarget() {
+  if (streamers.length === 0) return null;
+  const pool = streamers.slice().sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  const hash = hashStringToInt(getTodayDateString());
+  return pool[hash % pool.length];
+}
+
+function loadDailyResult() {
+  try {
+    const raw = localStorage.getItem(DAILY_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveDailyResult(result) {
+  try {
+    localStorage.setItem(DAILY_KEY, JSON.stringify(result));
+  } catch (e) {
+    /* 무시 */
+  }
+}
+
+// 시도(추측+힌트보기 합산)가 10회에 도달했는데 아직 못 맞혔으면 그 자리에서 실패 처리한다.
+// (정답을 맞혀서 이기는 경로는 submitGuess에서 따로 처리하므로 여기서는 실패만 검사한다.)
+function checkDailyAttemptLimit() {
+  if (!isDailyChallenge) return;
+  if (getAttemptCount() >= DAILY_ATTEMPT_LIMIT) {
+    showWin(true);
+  }
+}
+
+function startDailyChallenge() {
+  const today = getTodayDateString();
+  const saved = loadDailyResult();
+  if (saved && saved.date === today) {
+    alert(
+      saved.won
+        ? `오늘의 도전을 이미 성공하셨어요! "${saved.targetName}" (${saved.attempts}번 시도)\n내일 다시 도전해보세요.`
+        : `오늘의 도전에 이미 실패하셨어요. 정답은 "${saved.targetName}" 였어요. (${saved.attempts}번 시도)\n내일 다시 도전해보세요.`
+    );
+    return;
+  }
+  isTutorial = false;
+  hideTutorialUI();
+  runInGameScreen(() => {
+    startNewGame(pickDailyTarget());
+    isDailyChallenge = true;
+    tutorialTitleEl.textContent = "일일 도전";
+    tutorialTitleEl.classList.remove("hidden");
+    updateGuessCount();
+  });
 }
 
 // ---------------------------------------------------------
@@ -597,8 +685,9 @@ function pickRandomTarget(excludeName) {
 
 function startNewGame(newTarget) {
   target = newTarget || pickRandomTarget();
+  isDailyChallenge = false; // 기본은 일반 라운드 — 일일 도전은 호출부(startDailyChallenge)에서 바로 뒤에 true로 바꿔준다
   guessedNames = [];
-  hintUsedThisRound = false;
+  hintUseCount = 0;
   confirmed = { name: false, gender: false, crew: false, startYear: false, age: false, fanCount: false };
   boardBodyEl.innerHTML = "";
   updateGuessCount();
@@ -606,6 +695,8 @@ function startNewGame(newTarget) {
   showRoundInProgress();
   renderConfirmedHints();
   updateHintBtnState();
+  resetDexFilters(); // 다른 문제로 넘어가면 도감에 남아있던 필터도 초기화한다
+  showFirstGuessHint();
   inputEl.value = "";
   inputEl.focus();
 }
@@ -623,31 +714,33 @@ function updateConfirmedFromCmp(cmp) {
 }
 
 // "💡 힌트보기" 버튼: 소속 크루/방송 시작/나이 중 아직 확정되지 않은 항목 하나를 무작위로 확정칸에
-// 채워준다. 한 판에 한 번만 쓸 수 있고, 시도 횟수를 1회 소모한다(실제로 스트리머를 추측한 건 아니라서
-// guessedNames에는 추가하지 않고, getAttemptCount()가 hintUsedThisRound를 더해서 카운트한다).
+// 채워준다. 횟수 제한은 없이 몇 번이든 쓸 수 있지만, 쓸 때마다 시도 횟수를 1회씩 소모한다(실제로
+// 스트리머를 추측한 건 아니라서 guessedNames에는 추가하지 않고, getAttemptCount()가 hintUseCount를
+// 더해서 카운트한다). 채울 후보가 다 떨어지면(셋 다 확정) 자연히 더 쓸 수 없다.
 const HINT_REVEAL_CATEGORIES = ["crew", "startYear", "age"];
 
 function useHintReveal() {
-  if (!target || hintUsedThisRound) return;
+  if (!target) return;
   const candidates = HINT_REVEAL_CATEGORIES.filter((key) => !confirmed[key]);
   if (candidates.length === 0) return; // 이미 셋 다 확정된 경우 — 버튼이 비활성화돼 있어야 정상
   const picked = candidates[Math.floor(Math.random() * candidates.length)];
   confirmed[picked] = true;
-  hintUsedThisRound = true;
+  hintUseCount++;
   renderConfirmedHints();
   updateGuessCount();
   updateHintBtnState();
+  checkDailyAttemptLimit();
 }
 
-// "💡 힌트보기" 버튼의 활성/비활성 상태를 갱신한다 — 이미 썼거나, 채워줄 항목이 더 없으면 비활성화.
+// "💡 힌트보기" 버튼의 활성/비활성 상태를 갱신한다 — 채워줄 항목(크루/방송시작/나이)이 더 없으면 비활성화.
 function updateHintBtnState() {
   const noCandidatesLeft = HINT_REVEAL_CATEGORIES.every((key) => confirmed[key]);
-  hintBtn.disabled = hintUsedThisRound || noCandidatesLeft;
+  hintBtn.disabled = noCandidatesLeft;
 }
 
-// 실제로 추측(guessedNames)한 횟수 + 힌트보기 사용 여부(1회 소모)를 합친, 화면에 보여줄 시도 횟수.
+// 실제로 추측(guessedNames)한 횟수 + 힌트보기 사용 횟수를 합친, 화면에 보여줄 시도 횟수.
 function getAttemptCount() {
-  return guessedNames.length + (hintUsedThisRound ? 1 : 0);
+  return guessedNames.length + hintUseCount;
 }
 
 function renderConfirmedHints() {
@@ -726,12 +819,24 @@ function showRoundInProgress() {
   playAgainBtn.dataset.mode = "";
 }
 
+// 라운드를 새로 시작할 때 정답 사진 박스 위에 뜨는 첫 안내 팝업 — X 버튼을 누르거나 첫 스트리머를
+// 입력해서 힌트를 얻으면 사라진다. 튜토리얼은 자기만의 안내 배너가 이미 같은 역할을 하므로 제외.
+function showFirstGuessHint() {
+  if (isTutorial) return;
+  firstGuessHintEl.classList.remove("hidden");
+}
+
+function hideFirstGuessHint() {
+  firstGuessHintEl.classList.add("hidden");
+}
+
 // ---------------------------------------------------------
 // 이벤트 바인딩
 // ---------------------------------------------------------
 function bindEvents() {
   // 메인 화면
   startGameBtn.addEventListener("click", showModeMenu);
+  dailyChallengeBtn.addEventListener("click", startDailyChallenge);
   modeBackBtn.addEventListener("click", showHomeMenu);
 
   // 출제 범위 화면: 전체/2천 미만/2천 이상/5천 이상/1만 이상 버튼은 누르는 즉시 그 범위로 게임을 시작한다.
@@ -882,6 +987,7 @@ function bindEvents() {
     }
   });
 
+  firstGuessHintCloseBtn.addEventListener("click", hideFirstGuessHint);
   hintBtn.addEventListener("click", useHintReveal);
   giveupBtn.addEventListener("click", () => {
     if (!target) return;
@@ -900,6 +1006,7 @@ function bindEvents() {
       goHome();
     } else {
       startNewGame(pickRandomTarget(target ? target.name : null));
+      tutorialTitleEl.classList.add("hidden"); // 일일 도전 중이었다면 "일일 도전" 제목을 다시 숨긴다
     }
   });
 
@@ -985,6 +1092,7 @@ function submitGuess(rawName) {
   }
 
   guessedNames.push(streamer.name);
+  hideFirstGuessHint(); // 첫 스트리머를 입력해 힌트를 얻었으니 안내 팝업은 이제 그만 보여준다
   const cmp = renderGuessRow(streamer);
   updateConfirmedFromCmp(cmp);
   renderConfirmedHints();
@@ -1002,6 +1110,7 @@ function submitGuess(rawName) {
     showWin();
   } else {
     playPop();
+    checkDailyAttemptLimit(); // 일일 도전 중 오답으로 시도 10회를 다 썼으면 그 자리에서 실패 처리
   }
 }
 
@@ -1014,7 +1123,8 @@ function shakeInput() {
 }
 
 function updateGuessCount() {
-  guessCountEl.textContent = `시도: ${getAttemptCount()}회`;
+  const count = getAttemptCount();
+  guessCountEl.textContent = isDailyChallenge ? `시도: ${count}/${DAILY_ATTEMPT_LIMIT}회` : `시도: ${count}회`;
 }
 
 // ---------------------------------------------------------
@@ -1368,11 +1478,20 @@ function showWin(gaveUp) {
   giveupBtn.classList.add("hidden");
   hintBtn.classList.add("hidden");
   suggestionsEl.classList.add("hidden");
+  hideFirstGuessHint(); // 한 번도 안 눌러본 채 "정답 보기"로 끝났을 경우를 위한 안전장치
 
   const attempts = getAttemptCount();
-  resultTextEl.textContent = gaveUp
-    ? `아쉽지만 정답은 "${target.name}" 였습니다. (${attempts}번 시도)`
-    : `🎉 정답입니다! "${target.name}" (${attempts}번 시도)`;
+  const won = !gaveUp;
+
+  if (isDailyChallenge) {
+    resultTextEl.textContent = won
+      ? `🎉 오늘의 도전 성공! "${target.name}" (${attempts}번 시도)`
+      : `아쉽지만 오늘의 도전은 실패했어요. 정답은 "${target.name}" 였습니다. (${attempts}번 시도)`;
+  } else {
+    resultTextEl.textContent = won
+      ? `🎉 정답입니다! "${target.name}" (${attempts}번 시도)`
+      : `아쉽지만 정답은 "${target.name}" 였습니다. (${attempts}번 시도)`;
+  }
 
   if (target.stationUrl) {
     stationLinkBtn.href = target.stationUrl;
@@ -1385,9 +1504,13 @@ function showWin(gaveUp) {
 
   revealTarget(target);
 
-  if (!gaveUp) {
-    launchConfetti();
-    if (!isTutorial) recordWin(attempts);
+  if (won) launchConfetti();
+
+  // 일일 도전 결과는 일반 통계와 섞이지 않도록 별도로 저장한다 (오늘 이미 플레이했는지 판단에도 쓰임).
+  if (isDailyChallenge) {
+    saveDailyResult({ date: getTodayDateString(), won, attempts, targetName: target.name });
+  } else if (won && !isTutorial) {
+    recordWin(attempts);
   }
 
   if (isTutorial) {
@@ -1468,6 +1591,7 @@ function pickTutorialTarget() {
 function startTutorial() {
   isTutorial = true;
   tutorialStepIndex = 0;
+  tutorialTitleEl.textContent = "튜토리얼"; // 일일 도전에서 "일일 도전"으로 바꿔놨을 수도 있으니 되돌려둔다
   tutorialTitleEl.classList.remove("hidden");
   tutorialSkipBtn.textContent = "튜토리얼 종료";
   runInGameScreen(() => {
