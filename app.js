@@ -138,6 +138,8 @@ const dexGameBtn = $("#dexGameBtn");
 // 그 화면의 진행 상태를 건드리지 않는다)
 const dexHomeBtn = $("#dexHomeBtn");
 const dexModalEl = $("#dexModal");
+const dexPanelEl = $(".dex-panel");
+const dexDragHandleEl = $("#dexDragHandle");
 const dexCloseBtn = $("#dexCloseBtn");
 const dexSearchInputEl = $("#dexSearchInput");
 const dexGenderFilterEl = $("#dexGenderFilter");
@@ -275,6 +277,7 @@ function showModeMenu() {
 let dexFilterOptionsBuilt = false;
 
 async function openDex() {
+  resetDexPanelPosition(); // 열 때마다 기본 위치(옆 빈 공간/화면 중앙)로 되돌린 뒤 시작한다
   dexModalEl.classList.remove("hidden");
   await dataLoadPromise; // 홈 화면에서 게임을 한 번도 시작하지 않은 채 열었을 수도 있으므로 데이터 로드를 기다린다
   if (!dexFilterOptionsBuilt) {
@@ -285,6 +288,58 @@ async function openDex() {
   }
   renderDexList();
   dexSearchInputEl.focus();
+}
+
+// ---------------------------------------------------------
+// 도감 패널 드래그 이동 — 상단바(dexDragHandle)를 잡고 끌면 원하는 위치로 옮길 수 있다.
+// 기본값(옆 빈 공간에 뜨는 위치 또는 모바일 화면 중앙)은 openDex()가 열 때마다 되돌려준다.
+// ---------------------------------------------------------
+let dexDrag = null; // { offsetX, offsetY } — 드래그 중일 때만 값이 있음
+
+function resetDexPanelPosition() {
+  dexPanelEl.style.position = "";
+  dexPanelEl.style.left = "";
+  dexPanelEl.style.top = "";
+  dexPanelEl.style.margin = "";
+}
+
+function startDexDrag(e) {
+  if (e.target.closest("#dexCloseBtn")) return; // 닫기 버튼을 눌렀을 때는 드래그를 시작하지 않는다
+  const rect = dexPanelEl.getBoundingClientRect();
+  dexDrag = {
+    offsetX: e.clientX - rect.left,
+    offsetY: e.clientY - rect.top,
+  };
+  // 지금까지의 위치(가운데 정렬/옆 배치 등 CSS로 계산된 값)를 고정 좌표로 그대로 옮겨서,
+  // 드래그가 시작되는 순간 패널이 갑자기 튀지 않게 한다.
+  dexPanelEl.style.position = "fixed";
+  dexPanelEl.style.left = rect.left + "px";
+  dexPanelEl.style.top = rect.top + "px";
+  dexPanelEl.style.margin = "0";
+  dexPanelEl.classList.add("dex-dragging");
+  document.addEventListener("pointermove", onDexDrag);
+  document.addEventListener("pointerup", stopDexDrag);
+}
+
+function onDexDrag(e) {
+  if (!dexDrag) return;
+  const rect = dexPanelEl.getBoundingClientRect();
+  // 화면 밖으로 완전히 나가서 못 찾게 되지 않도록, 최소한 조금은 화면 안에 걸쳐 있게 한다.
+  const minLeft = -rect.width + 80;
+  const maxLeft = window.innerWidth - 80;
+  const minTop = 0;
+  const maxTop = window.innerHeight - 60;
+  const newLeft = Math.min(Math.max(e.clientX - dexDrag.offsetX, minLeft), maxLeft);
+  const newTop = Math.min(Math.max(e.clientY - dexDrag.offsetY, minTop), maxTop);
+  dexPanelEl.style.left = newLeft + "px";
+  dexPanelEl.style.top = newTop + "px";
+}
+
+function stopDexDrag() {
+  dexDrag = null;
+  dexPanelEl.classList.remove("dex-dragging");
+  document.removeEventListener("pointermove", onDexDrag);
+  document.removeEventListener("pointerup", stopDexDrag);
 }
 
 function closeDex() {
@@ -356,7 +411,8 @@ function renderDexList() {
     if (chosungFilter && getChosung(s.name) !== chosungFilter) return false;
     if (crewFilter && !getCrewNames(s).includes(crewFilter)) return false;
     if (startYearFilter && s.startYear !== Number(startYearFilter)) return false;
-    if (ageFilter && s.age !== Number(ageFilter)) return false;
+    if (ageFilter === "__private__" && s.age != null) return false;
+    else if (ageFilter && ageFilter !== "__private__" && s.age !== Number(ageFilter)) return false;
     if (!isInRange(s.fanCount, fanRange.min, fanRange.max)) return false;
     return true;
   });
@@ -713,16 +769,18 @@ function updateConfirmedFromCmp(cmp) {
   if (cmp.fanCmp.match) confirmed.fanCount = true;
 }
 
-// "💡 힌트보기" 버튼: 소속 크루/방송 시작/나이 중 아직 확정되지 않은 항목 하나를 무작위로 확정칸에
-// 채워준다. 횟수 제한은 없이 몇 번이든 쓸 수 있지만, 쓸 때마다 시도 횟수를 1회씩 소모한다(실제로
-// 스트리머를 추측한 건 아니라서 guessedNames에는 추가하지 않고, getAttemptCount()가 hintUseCount를
-// 더해서 카운트한다). 채울 후보가 다 떨어지면(셋 다 확정) 자연히 더 쓸 수 없다.
-const HINT_REVEAL_CATEGORIES = ["crew", "startYear", "age"];
+// "💡 힌트보기" 버튼: 소속 크루/방송 시작/나이/애청자 수 중 아직 확정되지 않은 항목 하나를 무작위로
+// 확정칸에 채워준다(이름/성별은 대상에서 제외 — 이름은 힌트 없이도 초성으로 항상 유추 가능하고,
+// 성별은 선택지가 둘뿐이라 힌트로서 의미가 약해서). 횟수 제한은 없이 몇 번이든 쓸 수 있지만, 쓸 때마다
+// 시도 횟수를 1회씩 소모한다(실제로 스트리머를 추측한 건 아니라서 guessedNames에는 추가하지 않고,
+// getAttemptCount()가 hintUseCount를 더해서 카운트한다). 채울 후보가 다 떨어지면(넷 다 확정) 자연히
+// 더 쓸 수 없다.
+const HINT_REVEAL_CATEGORIES = ["crew", "startYear", "age", "fanCount"];
 
 function useHintReveal() {
   if (!target) return;
   const candidates = HINT_REVEAL_CATEGORIES.filter((key) => !confirmed[key]);
-  if (candidates.length === 0) return; // 이미 셋 다 확정된 경우 — 버튼이 비활성화돼 있어야 정상
+  if (candidates.length === 0) return; // 이미 넷 다 확정된 경우 — 버튼이 비활성화돼 있어야 정상
   const picked = candidates[Math.floor(Math.random() * candidates.length)];
   confirmed[picked] = true;
   hintUseCount++;
@@ -732,7 +790,7 @@ function useHintReveal() {
   checkDailyAttemptLimit();
 }
 
-// "💡 힌트보기" 버튼의 활성/비활성 상태를 갱신한다 — 채워줄 항목(크루/방송시작/나이)이 더 없으면 비활성화.
+// "💡 힌트보기" 버튼의 활성/비활성 상태를 갱신한다 — 채워줄 항목(크루/방송시작/나이/애청자 수)이 더 없으면 비활성화.
 function updateHintBtnState() {
   const noCandidatesLeft = HINT_REVEAL_CATEGORIES.every((key) => confirmed[key]);
   hintBtn.disabled = noCandidatesLeft;
@@ -896,6 +954,7 @@ function bindEvents() {
   dexHomeBtn.addEventListener("click", openDex);
   dexGameBtn.addEventListener("click", openDex);
   dexCloseBtn.addEventListener("click", closeDex);
+  dexDragHandleEl.addEventListener("pointerdown", startDexDrag);
   dexModalEl.addEventListener("click", (e) => {
     if (e.target === dexModalEl) closeDex(); // 패널 바깥(어두운 배경) 클릭 시 닫기
   });

@@ -956,6 +956,23 @@ html, body {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
 }
 
+/* 도감 패널 상단바를 잡고 드래그해서 위치를 옮길 수 있다 (dexDragHandle 관련 JS 참고).
+   닫기 버튼 자체는 자기 cursor를 가지므로 드래그 손잡이 느낌과 겹치지 않는다. */
+.dex-drag-handle {
+  cursor: grab;
+  touch-action: none; /* 터치로 드래그할 때 화면 스크롤과 충돌하지 않도록 */
+  user-select: none;
+}
+
+.dex-drag-handle:active {
+  cursor: grabbing;
+}
+
+.dex-panel.dex-dragging {
+  transition: none;
+  opacity: 0.96;
+}
+
 /* PC(넓은 화면)에서는 도감을 화면 전체를 덮는 팝업이 아니라, 게임 화면 옆 빈 공간에 떠 있는
    패널로 바꾼다 — 어두운 배경도 없애고 클릭도 패널 자체에만 걸리게 해서, 게임은 그 밑에서
    계속 플레이할 수 있다. 모바일은 기존처럼 화면 중앙 팝업 그대로 유지. */

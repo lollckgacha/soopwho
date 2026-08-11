@@ -196,7 +196,7 @@
         <div class="toolbar">
           <span id="guessCount">시도: 0회</span>
           <button id="dexGameBtn" class="ghost-btn" title="버튜버 도감">📖 도감</button>
-          <button id="hintBtn" class="ghost-btn" title="소속 크루/방송 시작/나이 중 하나를 무작위로 확정칸에 채워줍니다 (쓸 때마다 시도 1회 소모, 횟수 제한 없음)">💡 힌트보기</button>
+          <button id="hintBtn" class="ghost-btn" title="소속 크루/방송 시작/나이/애청자 수 중 하나를 무작위로 확정칸에 채워줍니다 (쓸 때마다 시도 1회 소모, 횟수 제한 없음)">💡 힌트보기</button>
           <button id="giveupBtn" class="ghost-btn">🏳️ 정답 보기</button>
         </div>
 
@@ -220,7 +220,7 @@
     <!-- ================= 버튜버 도감 (오버레이 — 어느 화면에서 열어도 그 화면 상태를 그대로 유지) ================= -->
     <div id="dexModal" class="dex-modal hidden">
       <div class="dex-panel">
-        <div class="game-topbar">
+        <div class="game-topbar dex-drag-handle" id="dexDragHandle" title="여기를 잡고 위치를 옮길 수 있어요">
           <button id="dexCloseBtn" class="icon-btn" title="닫기">✕</button>
           <h2 class="screen-title">버튜버 도감</h2>
         </div>
@@ -263,6 +263,7 @@
             </select>
             <select id="dexAgeFilter" class="dex-filter-select">
               <option value="">나이 전체</option>
+              <option value="__private__">비공개</option>
             </select>
             <div class="dex-range-inputs">
               <span class="dex-range-label">애청자 수</span>
